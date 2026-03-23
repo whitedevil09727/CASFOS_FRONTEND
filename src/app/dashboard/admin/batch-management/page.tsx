@@ -1,11 +1,11 @@
 "use client";
 
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Search, Edit2, Archive, Eye, Filter, ArrowRight, ArrowLeft,
+  Search, Edit2, Archive, Filter, ArrowRight, ArrowLeft,
   Users, AlertTriangle, ShieldCheck, CheckCircle2, ChevronRight,
-  TrendingDown, BookOpen, Plus, X
+  BookOpen, Plus, X
 } from "lucide-react";
 import { cn } from "../../../../lib/utils";
 
@@ -23,6 +23,10 @@ interface Batch {
   type: BatchType;
   capacity: number;
   status: BatchStatus;
+  course: string;
+  startDate: string;
+  endDate: string;
+  instructor: string;
   traineeIds: string[]; // List of assigned trainee IDs
 }
 
@@ -35,12 +39,72 @@ interface Trainee {
   enrollmentStatus: EnrollmentStatus;
 }
 
+interface BatchFormData {
+  code: string;
+  name: string;
+  type: BatchType;
+  capacity: number;
+  status: BatchStatus;
+  course: string;
+  startDate: string;
+  endDate: string;
+  instructor: string;
+}
+
 // ─── Sample Data ──────────────────────────────────────────────────────────────
 const SAMPLE_BATCHES: Batch[] = [
-  { id: "b1", code: "IFS-2026-A", name: "2026 IFS Batch A", type: "Induction", capacity: 40, status: "Active", traineeIds: ["t1", "t2", "t3"] },
-  { id: "b2", code: "SFS-2026-B", name: "2026 SFS Batch B", type: "Induction", capacity: 30, status: "Full", traineeIds: ["t4", "t5", "t6", "t7"] },
-  { id: "b3", code: "GIS-ADV", name: "GIS Special Group", type: "In-Service", capacity: 20, status: "Draft", traineeIds: [] },
-  { id: "b4", code: "WLF-25", name: "Wildlife Management '25", type: "Special", capacity: 25, status: "Archived", traineeIds: ["t8", "t9"] },
+  {
+    id: "b1",
+    code: "IFS-2026-A",
+    name: "2026 IFS Batch A",
+    type: "Induction",
+    capacity: 40,
+    status: "Active",
+    course: "IFS Foundation Course",
+    startDate: "2026-01-08",
+    endDate: "2026-04-28",
+    instructor: "Dr. Aruna Devi",
+    traineeIds: ["t1", "t2", "t3"]
+  },
+  {
+    id: "b2",
+    code: "SFS-2026-B",
+    name: "2026 SFS Batch B",
+    type: "Induction",
+    capacity: 30,
+    status: "Full",
+    course: "SFS Induction",
+    startDate: "2026-02-01",
+    endDate: "2026-05-15",
+    instructor: "Mr. Suresh Kumar",
+    traineeIds: ["t4", "t5", "t6", "t7"]
+  },
+  {
+    id: "b3",
+    code: "GIS-ADV",
+    name: "GIS Special Group",
+    type: "In-Service",
+    capacity: 20,
+    status: "Draft",
+    course: "Advanced GIS & Remote Sensing",
+    startDate: "2026-06-10",
+    endDate: "2026-07-22",
+    instructor: "Prof. Meera Nair",
+    traineeIds: []
+  },
+  {
+    id: "b4",
+    code: "WLF-25",
+    name: "Wildlife Management '25",
+    type: "Special",
+    capacity: 25,
+    status: "Archived",
+    course: "Wildlife Management",
+    startDate: "2025-09-12",
+    endDate: "2025-11-06",
+    instructor: "Col. A. Sharma",
+    traineeIds: ["t8", "t9"]
+  },
 ];
 
 const SAMPLE_TRAINEES: Trainee[] = [
@@ -74,6 +138,46 @@ const serviceStyles: Record<string, string> = {
 
 type TransferDirection = "assign" | "remove";
 
+const INITIAL_BATCH_FORM: BatchFormData = {
+  code: "",
+  name: "",
+  type: "Induction",
+  capacity: 30,
+  status: "Draft",
+  course: "",
+  startDate: "",
+  endDate: "",
+  instructor: ""
+};
+
+const sanitizeCapacity = (capacity: number) => {
+  if (!Number.isFinite(capacity) || capacity < 1) return 1;
+  return Math.floor(capacity);
+};
+
+const normalizeBatchStatus = (
+  requestedStatus: BatchStatus,
+  traineeCount: number,
+  capacity: number
+) => {
+  if (requestedStatus === "Archived") return "Archived";
+  if (traineeCount >= capacity) return "Full";
+  if (requestedStatus === "Full") return traineeCount > 0 ? "Active" : "Draft";
+  return requestedStatus;
+};
+
+const getBatchFormData = (batch: Batch): BatchFormData => ({
+  code: batch.code,
+  name: batch.name,
+  type: batch.type,
+  capacity: batch.capacity,
+  status: batch.status,
+  course: batch.course,
+  startDate: batch.startDate,
+  endDate: batch.endDate,
+  instructor: batch.instructor
+});
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 export default function BatchManagementPage() {
   const [batches, setBatches] = useState<Batch[]>(SAMPLE_BATCHES);
@@ -100,11 +204,11 @@ export default function BatchManagementPage() {
     warning?: string;
   } | null>(null);
 
-  // Create Modal State
-  const [createModalOpen, setCreateModalOpen] = useState(false);
-  const [newBatch, setNewBatch] = useState({
-    code: "", course: "", startDate: "", endDate: "", capacity: 30, instructor: ""
-  });
+  // Batch Form Modal State
+  const [batchModalOpen, setBatchModalOpen] = useState(false);
+  const [batchModalMode, setBatchModalMode] = useState<"create" | "edit">("create");
+  const [editingBatchId, setEditingBatchId] = useState<string | null>(null);
+  const [batchForm, setBatchForm] = useState<BatchFormData>(INITIAL_BATCH_FORM);
 
   // Derived state
   const assignedTrainees = useMemo(() => {
@@ -124,11 +228,15 @@ export default function BatchManagementPage() {
     });
   }, [selectedBatch, trainees, search, genderFilter, serviceFilter, statusFilter]);
 
-  // Reset selections when changing batch
-  useEffect(() => {
+  const resetSelections = () => {
     setSelectedAvailable(new Set());
     setSelectedAssigned(new Set());
-  }, [selectedBatchId]);
+  };
+
+  const handleBatchSelection = (id: string) => {
+    resetSelections();
+    setSelectedBatchId(id);
+  };
 
   const toggleAvailable = (id: string) => {
     const next = new Set(selectedAvailable);
@@ -196,11 +304,13 @@ export default function BatchManagementPage() {
         setSelectedAssigned(new Set());
       }
       
-      // Auto-update status if full
+      // Auto-update status as assignments change.
       let status = b.status;
       if (status !== "Archived") {
-         if (newIds.length >= b.capacity) status = "Full";
-         else if (newIds.length > 0 && status === "Full") status = "Active";
+        status = normalizeBatchStatus(status, newIds.length, b.capacity);
+        if (b.status === "Full" && newIds.length < b.capacity) {
+          status = newIds.length > 0 ? "Active" : "Draft";
+        }
       }
 
       return { ...b, traineeIds: newIds, status };
@@ -211,6 +321,59 @@ export default function BatchManagementPage() {
 
   const updateBatchStatus = (id: string, newStatus: BatchStatus) => {
     setBatches(prev => prev.map(c => c.id === id ? { ...c, status: newStatus } : c));
+  };
+
+  const closeBatchModal = () => {
+    setBatchModalOpen(false);
+    setBatchModalMode("create");
+    setEditingBatchId(null);
+    setBatchForm(INITIAL_BATCH_FORM);
+  };
+
+  const openCreateModal = () => {
+    setBatchModalMode("create");
+    setEditingBatchId(null);
+    setBatchForm(INITIAL_BATCH_FORM);
+    setBatchModalOpen(true);
+  };
+
+  const openEditModal = (batch: Batch) => {
+    setBatchModalMode("edit");
+    setEditingBatchId(batch.id);
+    setBatchForm(getBatchFormData(batch));
+    setBatchModalOpen(true);
+  };
+
+  const saveBatch = () => {
+    const capacity = sanitizeCapacity(batchForm.capacity);
+
+    if (batchModalMode === "edit" && editingBatchId) {
+      setBatches(prev => prev.map(batch => (
+        batch.id === editingBatchId
+          ? {
+              ...batch,
+              ...batchForm,
+              capacity,
+              status: normalizeBatchStatus(batchForm.status, batch.traineeIds.length, capacity)
+            }
+          : batch
+      )));
+      closeBatchModal();
+      return;
+    }
+
+    const newId = `b${Date.now()}`;
+    const createdBatch: Batch = {
+      id: newId,
+      ...batchForm,
+      capacity,
+      status: normalizeBatchStatus(batchForm.status, 0, capacity),
+      traineeIds: []
+    };
+
+    setBatches(prev => [createdBatch, ...prev]);
+    handleBatchSelection(newId);
+    closeBatchModal();
   };
 
 
@@ -224,7 +387,7 @@ export default function BatchManagementPage() {
             <h2 className="text-[18px] font-extrabold text-[#111827] serif-font tracking-tight">Batches</h2>
             <p className="text-[12px] text-gray-500 font-medium mt-1">Select a batch to manage allocation</p>
           </div>
-          <button onClick={() => setCreateModalOpen(true)} className="w-full flex items-center justify-center gap-2 bg-[#163e27] text-white px-4 py-2.5 rounded-xl font-bold text-[13px] hover:bg-[#1d4d31] transition-all shadow-[0_4px_12px_rgba(22,62,39,0.2)] hover:shadow-[0_6px_16px_rgba(22,62,39,0.3)] hover:-translate-y-0.5">
+          <button onClick={openCreateModal} className="w-full flex items-center justify-center gap-2 bg-[#163e27] text-white px-4 py-2.5 rounded-xl font-bold text-[13px] hover:bg-[#1d4d31] transition-all shadow-[0_4px_12px_rgba(22,62,39,0.2)] hover:shadow-[0_6px_16px_rgba(22,62,39,0.3)] hover:-translate-y-0.5">
             <Plus className="w-4 h-4" /> Create New Batch
           </button>
         </div>
@@ -238,7 +401,7 @@ export default function BatchManagementPage() {
             return (
               <div
                 key={batch.id}
-                onClick={() => setSelectedBatchId(batch.id)}
+                onClick={() => handleBatchSelection(batch.id)}
                 className={cn(
                   "p-4 rounded-2xl border transition-all cursor-pointer relative group",
                   isSelected 
@@ -280,13 +443,13 @@ export default function BatchManagementPage() {
                   </div>
                 </div>
 
-                <div className={cn("absolute right-4 bottom-4 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity", 
-                  isSelected ? "hidden" : "block"
+                <div className={cn("absolute right-4 bottom-4 items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity", 
+                  isSelected ? "hidden" : "flex"
                 )}>
                    <button onClick={(e) => { e.stopPropagation(); updateBatchStatus(batch.id, "Archived"); }} className="p-1.5 text-gray-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors" title="Archive">
                       <Archive className="w-3.5 h-3.5" />
                    </button>
-                   <button className="p-1.5 text-gray-400 hover:text-[#163e27] hover:bg-[#f0f8f3] rounded-lg transition-colors" title="Edit">
+                   <button onClick={(e) => { e.stopPropagation(); openEditModal(batch); }} className="p-1.5 text-gray-400 hover:text-[#163e27] hover:bg-[#f0f8f3] rounded-lg transition-colors" title="Edit">
                       <Edit2 className="w-3.5 h-3.5" />
                    </button>
                 </div>
@@ -301,20 +464,29 @@ export default function BatchManagementPage() {
         {selectedBatch ? (
           <>
             {/* Top Bar Workspace Info */}
-            <div className="px-6 py-5 border-b border-gray-100 bg-white flex items-center justify-between shrink-0">
-               <div>
-                  <h2 className="text-[20px] font-extrabold text-gray-900 serif-font">Trainee Allocation: {selectedBatch.name}</h2>
-                  <p className="text-[13px] text-gray-500 font-medium mt-1">
-                    Manage participants for this batch. Select trainees and move them between available and assigned lists.
-                  </p>
-               </div>
-               {selectedBatch.traineeIds.length >= selectedBatch.capacity && selectedBatch.status !== "Archived" && (
-                 <div className="flex items-center gap-2 bg-amber-50 text-amber-800 px-3 py-1.5 rounded-lg border border-amber-200">
-                   <AlertTriangle className="w-4 h-4" />
-                   <span className="text-[12px] font-bold">Capacity Full</span>
-                 </div>
-               )}
-            </div>
+             <div className="px-6 py-5 border-b border-gray-100 bg-white flex items-center justify-between shrink-0">
+                <div>
+                   <h2 className="text-[20px] font-extrabold text-gray-900 serif-font">Trainee Allocation: {selectedBatch.name}</h2>
+                   <p className="text-[13px] text-gray-500 font-medium mt-1">
+                     Manage participants for this batch. Select trainees and move them between available and assigned lists.
+                   </p>
+                </div>
+                <div className="flex items-center gap-3">
+                  {selectedBatch.traineeIds.length >= selectedBatch.capacity && selectedBatch.status !== "Archived" && (
+                    <div className="flex items-center gap-2 bg-amber-50 text-amber-800 px-3 py-1.5 rounded-lg border border-amber-200">
+                      <AlertTriangle className="w-4 h-4" />
+                      <span className="text-[12px] font-bold">Capacity Full</span>
+                    </div>
+                  )}
+                  <button
+                    onClick={() => openEditModal(selectedBatch)}
+                    className="inline-flex items-center gap-2 rounded-xl border border-[#163e27]/15 bg-[#f6fbf8] px-4 py-2 text-[12px] font-bold text-[#163e27] transition-colors hover:bg-[#edf7f1]"
+                  >
+                    <Edit2 className="w-3.5 h-3.5" />
+                    Edit Batch
+                  </button>
+                </div>
+             </div>
 
             {/* Filters */}
             <div className="px-6 py-4 bg-gray-50/50 border-b border-gray-100 flex items-center justify-between shrink-0 gap-4">
@@ -552,11 +724,11 @@ export default function BatchManagementPage() {
 
       {/* ── Create Batch Modal ── */}
       <AnimatePresence>
-        {createModalOpen && (
+        {batchModalOpen && (
           <div className="fixed inset-0 z-[200] grid place-items-center p-4">
             <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}
               className="absolute inset-0 bg-black/40 backdrop-blur-[2px]" 
-              onClick={() => setCreateModalOpen(false)} 
+              onClick={closeBatchModal}
             />
             <motion.div initial={{scale:0.96, y:15, opacity:0}} animate={{scale:1, y:0, opacity:1}} exit={{scale:0.96, y:15, opacity:0}}
               className="bg-white rounded-2xl shadow-2xl z-10 w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]"
@@ -565,14 +737,16 @@ export default function BatchManagementPage() {
               <div className="px-8 py-6 border-b border-gray-100 flex items-center justify-between shrink-0 bg-white">
                 <div>
                   <h2 className="text-[20px] font-bold text-[#1f2937] serif-font tracking-tight">
-                    Create New Batch
+                    {batchModalMode === "edit" ? "Edit Batch" : "Create New Batch"}
                   </h2>
                   <p className="text-[13px] text-[#6b7280] font-medium mt-1">
-                    Define batch parameters for the selected training course.
+                    {batchModalMode === "edit"
+                      ? "Update batch details and capacity for this training group."
+                      : "Define batch parameters for the selected training course."}
                   </p>
                 </div>
                 <button
-                  onClick={() => setCreateModalOpen(false)}
+                  onClick={closeBatchModal}
                   className="p-2 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-colors"
                 >
                   <X className="w-5 h-5" />
@@ -582,7 +756,19 @@ export default function BatchManagementPage() {
               {/* Form Body */}
               <div className="p-8 overflow-y-auto min-h-0 bg-[#fbfcfb] flex-1">
                 <div className="grid grid-cols-2 gap-x-6 gap-y-7">
-                  
+                  <div>
+                    <label className="text-[13px] font-bold text-gray-800 mb-2 block">
+                      Batch Name <span className="text-rose-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g., 2026 IFS Batch A"
+                      value={batchForm.name}
+                      onChange={e => setBatchForm(prev => ({ ...prev, name: e.target.value }))}
+                      className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl text-[14px] font-medium text-gray-900 focus:outline-none focus:border-[#163e27] focus:ring-1 focus:ring-[#163e27] transition-all"
+                    />
+                  </div>
+
                   <div>
                     <label className="text-[13px] font-bold text-gray-800 mb-2 block">
                       Batch ID <span className="text-rose-500">*</span>
@@ -590,10 +776,47 @@ export default function BatchManagementPage() {
                     <input
                       type="text"
                       placeholder="e.g., CY-2026-04"
-                      value={newBatch.code}
-                      onChange={e => setNewBatch(prev => ({ ...prev, code: e.target.value }))}
+                      value={batchForm.code}
+                      onChange={e => setBatchForm(prev => ({ ...prev, code: e.target.value }))}
                       className="w-full px-4 py-3 bg-[#f8fafc] border-2 border-[#163e27]/20 rounded-xl text-[14px] font-medium text-gray-900 focus:outline-none focus:border-[#163e27] focus:ring-1 focus:ring-[#163e27] transition-all"
                     />
+                  </div>
+
+                  <div>
+                    <label className="text-[13px] font-bold text-gray-800 mb-2 block">
+                      Batch Type <span className="text-rose-500">*</span>
+                    </label>
+                    <div className="relative">
+                      <select
+                        value={batchForm.type}
+                        onChange={e => setBatchForm(prev => ({ ...prev, type: e.target.value as BatchType }))}
+                        className="w-full appearance-none px-4 py-3 bg-white border border-gray-200 rounded-xl text-[14px] font-medium text-gray-700 focus:outline-none focus:border-[#163e27] focus:ring-1 focus:ring-[#163e27] transition-all pr-10"
+                      >
+                        <option value="Induction">Induction</option>
+                        <option value="In-Service">In-Service</option>
+                        <option value="Special">Special</option>
+                      </select>
+                      <ChevronRight className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none rotate-90" />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-[13px] font-bold text-gray-800 mb-2 block">
+                      Status <span className="text-rose-500">*</span>
+                    </label>
+                    <div className="relative">
+                      <select
+                        value={batchForm.status}
+                        onChange={e => setBatchForm(prev => ({ ...prev, status: e.target.value as BatchStatus }))}
+                        className="w-full appearance-none px-4 py-3 bg-white border border-gray-200 rounded-xl text-[14px] font-medium text-gray-700 focus:outline-none focus:border-[#163e27] focus:ring-1 focus:ring-[#163e27] transition-all pr-10"
+                      >
+                        <option value="Draft">Draft</option>
+                        <option value="Active">Active</option>
+                        <option value="Full">Full</option>
+                        <option value="Archived">Archived</option>
+                      </select>
+                      <ChevronRight className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none rotate-90" />
+                    </div>
                   </div>
 
                   <div>
@@ -602,14 +825,15 @@ export default function BatchManagementPage() {
                     </label>
                     <div className="relative">
                       <select
-                        value={newBatch.course}
-                        onChange={e => setNewBatch(prev => ({ ...prev, course: e.target.value }))}
+                        value={batchForm.course}
+                        onChange={e => setBatchForm(prev => ({ ...prev, course: e.target.value }))}
                         className="w-full appearance-none px-4 py-3 bg-white border border-gray-200 rounded-xl text-[14px] font-medium text-gray-700 focus:outline-none focus:border-[#163e27] focus:ring-1 focus:ring-[#163e27] transition-all pr-10"
                       >
                         <option value="" disabled>Select course</option>
-                        <option value="IFS Foundation">IFS Foundation Course</option>
+                        <option value="IFS Foundation Course">IFS Foundation Course</option>
                         <option value="SFS Induction">SFS Induction</option>
-                        <option value="Advanced GIS">Advanced GIS & Remote Sensing</option>
+                        <option value="Advanced GIS & Remote Sensing">Advanced GIS & Remote Sensing</option>
+                        <option value="Wildlife Management">Wildlife Management</option>
                       </select>
                       <ChevronRight className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none rotate-90" />
                     </div>
@@ -621,8 +845,8 @@ export default function BatchManagementPage() {
                     </label>
                     <input
                       type="date"
-                      value={newBatch.startDate}
-                      onChange={e => setNewBatch(prev => ({ ...prev, startDate: e.target.value }))}
+                      value={batchForm.startDate}
+                      onChange={e => setBatchForm(prev => ({ ...prev, startDate: e.target.value }))}
                       className="w-full px-4 py-3 bg-[#f8fafc] border border-gray-200 rounded-xl text-[14px] font-medium text-gray-700 focus:outline-none focus:border-[#163e27] transition-all"
                     />
                   </div>
@@ -633,8 +857,8 @@ export default function BatchManagementPage() {
                     </label>
                     <input
                       type="date"
-                      value={newBatch.endDate}
-                      onChange={e => setNewBatch(prev => ({ ...prev, endDate: e.target.value }))}
+                      value={batchForm.endDate}
+                      onChange={e => setBatchForm(prev => ({ ...prev, endDate: e.target.value }))}
                       className="w-full px-4 py-3 bg-[#f8fafc] border border-gray-200 rounded-xl text-[14px] font-medium text-gray-700 focus:outline-none focus:border-[#163e27] transition-all"
                     />
                   </div>
@@ -645,9 +869,10 @@ export default function BatchManagementPage() {
                     </label>
                     <input
                       type="number"
+                      min={1}
                       placeholder="e.g., 30"
-                      value={newBatch.capacity || ""}
-                      onChange={e => setNewBatch(prev => ({ ...prev, capacity: parseInt(e.target.value) }))}
+                      value={batchForm.capacity || ""}
+                      onChange={e => setBatchForm(prev => ({ ...prev, capacity: Number(e.target.value) || 0 }))}
                       className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl text-[14px] font-medium text-gray-700 focus:outline-none focus:border-[#163e27] transition-all"
                     />
                   </div>
@@ -659,8 +884,8 @@ export default function BatchManagementPage() {
                     <input
                       type="text"
                       placeholder="e.g., Col. A. Sharma"
-                      value={newBatch.instructor}
-                      onChange={e => setNewBatch(prev => ({ ...prev, instructor: e.target.value }))}
+                      value={batchForm.instructor}
+                      onChange={e => setBatchForm(prev => ({ ...prev, instructor: e.target.value }))}
                       className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl text-[14px] font-medium text-gray-700 focus:outline-none focus:border-[#163e27] transition-all"
                     />
                   </div>
@@ -671,19 +896,16 @@ export default function BatchManagementPage() {
               {/* Footer */}
               <div className="shrink-0 bg-white border-t border-gray-100 px-8 py-5 flex items-center justify-end gap-4">
                 <button 
-                  onClick={() => setCreateModalOpen(false)} 
+                  onClick={closeBatchModal}
                   className="px-6 py-2.5 rounded-xl border border-gray-200 text-[#4b5563] font-bold text-[14px] hover:bg-gray-50 transition-colors"
                 >
                   Cancel
                 </button>
                 <button 
-                  onClick={() => {
-                    // Placeholder for actual creation logic
-                    setCreateModalOpen(false);
-                  }}
+                  onClick={saveBatch}
                   className="px-6 py-2.5 rounded-xl text-[14px] font-bold text-white transition-all shadow-sm bg-[#163e27] hover:bg-[#1d4d31]"
                 >
-                  Create Batch
+                  {batchModalMode === "edit" ? "Save Changes" : "Create Batch"}
                 </button>
               </div>
             </motion.div>

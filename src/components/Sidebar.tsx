@@ -5,14 +5,14 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
   LayoutDashboard,
-  BookOpen, Users, CalendarDays,
+  BookOpen,
   MapPin, UserCheck,
   Wallet,
   ClipboardCheck,
   BarChart2, MessageSquare,
   Heart, FileText,
   Settings, LogOut, ChevronDown,
-  TreePine, LucideIcon, Crown, Award, TrendingUp
+  TreePine, LucideIcon, Crown, Award
 } from "lucide-react";
 
 // ─── Types matching Laravel backend roles ────────────────────────────────────
@@ -32,7 +32,7 @@ function hasChildren(item: NavItem): item is NavGroup {
 
 // ─── Role-Based Navigation - Matches Laravel Backend ─────────────────────────
 // Base path for each role: /dashboard/[role]/
-const NAV: NavSection[] = [
+const NAV:NavSection[] = [
   {
     section: "Main",
     items: [
@@ -87,6 +87,53 @@ const NAV: NavSection[] = [
           { 
             label: "Academic Planning",  
             href: "/dashboard/faculty/academic-planning", 
+            allowedRoles: ["faculty"] 
+          },
+        ],
+      },
+    ],
+  },
+  {
+    section: "Tours & Field Exercises",
+    items: [
+      {
+        label: "Tours & Field Exercises",
+        icon: MapPin,
+        allowedRoles: ["admin", "faculty", "trainee"],
+        children: [
+          { 
+            label: "Tour Planning",                
+            href: "/dashboard/admin/tour-planning", 
+            allowedRoles: ["admin"] 
+          },
+          { 
+            label: "Tour Planning",                
+            href: "/dashboard/faculty/tour-planning", 
+            allowedRoles: ["faculty"] 
+          },
+          { 
+            label: "My Tours",                
+            href: "/dashboard/trainee/my-tours", 
+            allowedRoles: ["trainee"] 
+          },
+          { 
+            label: "Faculty & Leadership Assign.",  
+            href: "/dashboard/admin/tour-leadership", 
+            allowedRoles: ["admin"] 
+          },
+          { 
+            label: "Faculty & Leadership Assign.",  
+            href: "/dashboard/faculty/tour-leadership", 
+            allowedRoles: ["faculty"] 
+          },
+          { 
+            label: "Tour Monitoring",              
+            href: "/dashboard/admin/tour-monitoring", 
+            allowedRoles: ["admin"] 
+          },
+          { 
+            label: "Tour Monitoring",              
+            href: "/dashboard/faculty/tour-monitoring", 
             allowedRoles: ["faculty"] 
           },
         ],
@@ -226,53 +273,6 @@ const NAV: NavSection[] = [
           { label: "Fund Transactions",  href: "/dashboard/admin/fund-transactions" },
           { label: "Expense Monitoring", href: "/dashboard/admin/expense-monitoring" },
           { label: "Financial Insights", href: "/dashboard/admin/financial-insights" },
-        ],
-      },
-    ],
-  },
-  {
-    section: "Tours & Field Exercises",
-    items: [
-      {
-        label: "Tours & Field Exercises",
-        icon: MapPin,
-        allowedRoles: ["admin", "faculty", "trainee"],
-        children: [
-          { 
-            label: "Tour Planning",                
-            href: "/dashboard/admin/tour-planning", 
-            allowedRoles: ["admin"] 
-          },
-          { 
-            label: "Tour Planning",                
-            href: "/dashboard/faculty/tour-planning", 
-            allowedRoles: ["faculty"] 
-          },
-          { 
-            label: "My Tours",                
-            href: "/dashboard/trainee/my-tours", 
-            allowedRoles: ["trainee"] 
-          },
-          { 
-            label: "Faculty & Leadership Assign.",  
-            href: "/dashboard/admin/tour-leadership", 
-            allowedRoles: ["admin"] 
-          },
-          { 
-            label: "Faculty & Leadership Assign.",  
-            href: "/dashboard/faculty/tour-leadership", 
-            allowedRoles: ["faculty"] 
-          },
-          { 
-            label: "Tour Monitoring",              
-            href: "/dashboard/admin/tour-monitoring", 
-            allowedRoles: ["admin"] 
-          },
-          { 
-            label: "Tour Monitoring",              
-            href: "/dashboard/faculty/tour-monitoring", 
-            allowedRoles: ["faculty"] 
-          },
         ],
       },
     ],
@@ -456,9 +456,6 @@ export default function Sidebar() {
 
   const filteredBottomNav = filterNavItemsByRole(BOTTOM_NAV, user.role);
   const isAdmin = user.role === "admin";
-
-  // Determine the correct dashboard path based on role
-  const dashboardPath = `/dashboard/${user.role}`;
 
   return (
     <aside className="w-[240px] h-full bg-[#163e27] flex flex-col shrink-0 overflow-y-auto sidebar-scrollbar border-r border-[#10301d] z-20 shadow-xl">
