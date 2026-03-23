@@ -6,7 +6,7 @@ import {
   Plus, X, Edit2, User, Clock, BookOpen, MapPin,
   AlertCircle, ChevronDown, Save, Trash2
 } from "lucide-react";
-import { cn } from "../../../lib/utils";
+import { cn } from "../../../../lib/utils";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type Day = "Mon" | "Tue" | "Wed" | "Thu" | "Fri";

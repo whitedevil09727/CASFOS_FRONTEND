@@ -7,7 +7,7 @@ import {
   X, ChevronDown, Calendar, Users, FileText, CheckCircle2, AlertCircle, Save,
   FileEdit, Clock, CheckSquare, Globe
 } from "lucide-react";
-import { cn } from "../../../lib/utils";
+import { cn } from "../../../../lib/utils";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type Status = "Draft" | "Under Review" | "Approved" | "Published" | "Archived";

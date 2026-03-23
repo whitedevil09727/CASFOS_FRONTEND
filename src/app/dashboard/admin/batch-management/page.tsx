@@ -7,7 +7,7 @@ import {
   Users, AlertTriangle, ShieldCheck, CheckCircle2, ChevronRight,
   TrendingDown, BookOpen, Plus, X
 } from "lucide-react";
-import { cn } from "../../../lib/utils";
+import { cn } from "../../../../lib/utils";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type BatchStatus = "Draft" | "Active" | "Full" | "Archived";
