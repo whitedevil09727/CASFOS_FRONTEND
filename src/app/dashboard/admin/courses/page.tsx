@@ -1,3 +1,4 @@
+// src/app/(dashboard)/admin/courses/page.tsx
 "use client";
 
 import React, { useState, useMemo } from "react";
@@ -7,9 +8,8 @@ import {
   X, ChevronDown, Calendar, Users, FileText, CheckCircle2, AlertCircle, Save,
   FileEdit, Clock, CheckSquare, Globe
 } from "lucide-react";
-import { cn } from "../../../../lib/utils";
+import { cn } from "@/lib/utils";  
 
-// ─── Types ────────────────────────────────────────────────────────────────────
 type Status = "Draft" | "Under Review" | "Approved" | "Published" | "Archived";
 type Category = "Induction" | "In-Service" | "Special";
 type CourseType = "Residential" | "Non-Residential" | "Hybrid";
@@ -30,7 +30,6 @@ interface Course {
   notes?: string;
 }
 
-// ─── Sample Data ──────────────────────────────────────────────────────────────
 const SAMPLE_COURSES: Course[] = [
   {
     id: "1", code: "IFS-2026-01", name: "IFS Foundation Course", category: "Induction", type: "Residential",
@@ -59,7 +58,6 @@ const SAMPLE_COURSES: Course[] = [
   }
 ];
 
-// Badge styling helper
 const badgeStyles: Record<Status, string> = {
   "Draft": "bg-gray-100 text-gray-700 border-gray-200",
   "Under Review": "bg-amber-50 text-amber-700 border-amber-200",
@@ -74,7 +72,6 @@ const categoryBadgeStyles: Record<Category, string> = {
   "Special": "bg-fuchsia-50 text-fuchsia-700 border-fuchsia-200"
 };
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
 function calculateDays(start: string, end: string): number {
   if (!start || !end) return 0;
   const ms = new Date(end).getTime() - new Date(start).getTime();
@@ -93,7 +90,6 @@ const emptyForm = (): Omit<Course, "id" | "updatedAt"> => ({
   description: "", capacity: undefined, notes: ""
 });
 
-// ─── Main Component ───────────────────────────────────────────────────────────
 export default function CourseManagementPage() {
   const [courses, setCourses] = useState<Course[]>(SAMPLE_COURSES);
   const [search, setSearch] = useState("");
@@ -163,7 +159,6 @@ export default function CourseManagementPage() {
   return (
     <div className="flex flex-col h-[calc(100vh-60px)] bg-gray-50 overflow-hidden relative">
 
-      {/* ── Header ── */}
       <div className="shrink-0 bg-white border-b border-gray-200 px-8 py-6 flex items-center justify-between">
         <div>
           <h1 className="text-[20px] font-extrabold text-[#111827] serif-font tracking-tight">Course Management</h1>
@@ -186,10 +181,8 @@ export default function CourseManagementPage() {
         </div>
       </div>
 
-      {/* ── Main Data Table ── */}
       <div className="flex-1 overflow-auto p-8">
         
-        {/* KPI Cards */}
         <div className="grid grid-cols-4 gap-6 mb-8">
           {[
             { label: "Draft", val: kpis.draft, icon: FileEdit, grad: "from-slate-500 to-slate-700" },
@@ -219,36 +212,36 @@ export default function CourseManagementPage() {
                 <th className="px-6 py-4 text-[11px] font-bold text-gray-500 uppercase tracking-wider">Status</th>
                 <th className="px-6 py-4 text-[11px] font-bold text-gray-500 uppercase tracking-wider">Last Updated</th>
                 <th className="px-6 py-4 text-[11px] font-bold text-gray-500 uppercase tracking-wider text-right">Actions</th>
-              </tr>
+               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
               {filtered.map(course => (
                 <tr key={course.id} className="hover:bg-gray-50/50 transition-colors group">
                   <td className="px-6 py-4">
                     <span className="inline-flex items-center px-2 py-1 bg-gray-100 text-gray-800 text-[11px] font-bold rounded-md font-mono border border-gray-200">{course.code}</span>
-                  </td>
+                   </td>
                   <td className="px-6 py-4">
                     <p className="text-[14px] font-bold text-gray-900">{course.name}</p>
                     <p className="text-[12px] text-gray-500 font-medium truncate max-w-xs">{course.type}</p>
-                  </td>
+                   </td>
                   <td className="px-6 py-4">
                     <span className={cn("inline-flex items-center px-2.5 py-1 text-[11px] font-bold rounded-full border", categoryBadgeStyles[course.category])}>
                       {course.category}
                     </span>
-                  </td>
+                   </td>
                   <td className="px-6 py-4">
                     <p className="text-[13px] font-semibold text-gray-800">{formatDate(course.startDate)} <span className="text-gray-400 mx-1">→</span> {formatDate(course.endDate)}</p>
                     <p className="text-[11px] text-gray-500 font-medium mt-0.5">{course.durationDays} days</p>
-                  </td>
+                   </td>
                   <td className="px-6 py-4">
                     <span className={cn("inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-bold rounded-full border shadow-sm", badgeStyles[course.status])}>
                       <span className="w-1.5 h-1.5 rounded-full currentColor opacity-75 bg-current" />
                       {course.status}
                     </span>
-                  </td>
+                   </td>
                   <td className="px-6 py-4 text-[13px] text-gray-600 font-medium">
                     {formatDate(course.updatedAt)}
-                  </td>
+                   </td>
                   <td className="px-6 py-4">
                     <div className="flex items-center justify-end gap-1 opacity-60 group-hover:opacity-100 transition-opacity">
                       <button onClick={() => openEdit(course)} className="p-1.5 text-gray-500 hover:text-[#163e27] hover:bg-[#f0f8f3] rounded-lg transition-colors" title="View / Edit">
@@ -265,8 +258,8 @@ export default function CourseManagementPage() {
                         </button>
                       )}
                     </div>
-                  </td>
-                </tr>
+                   </td>
+                 </tr>
               ))}
               {filtered.length === 0 && (
                 <tr>
@@ -275,15 +268,14 @@ export default function CourseManagementPage() {
                       <Search className="w-8 h-8 text-gray-300 mb-2" />
                       <p className="text-[14px] font-medium">No courses found matching &quot;{search}&quot;</p>
                     </div>
-                  </td>
-                </tr>
+                   </td>
+                 </tr>
               )}
             </tbody>
-          </table>
+           </table>
         </div>
       </div>
 
-      {/* ── Slide-over Form Panel ── */}
       <AnimatePresence>
         {panelOpen && (
           <>
@@ -320,7 +312,6 @@ export default function CourseManagementPage() {
 
               <div className="flex-1 overflow-y-auto min-h-0 px-8 py-6 flex flex-col gap-10 bg-[#fbfcfb]">
 
-                {/* Section 1: Basic Information */}
                 <section>
                   <div className="flex items-center gap-2 mb-4">
                     <div className="w-6 h-6 rounded-lg bg-[#e2efe8] text-[#163e27] flex items-center justify-center">
@@ -424,7 +415,6 @@ export default function CourseManagementPage() {
                   </div>
                 </section>
 
-                {/* Section 2: Duration */}
                 <section>
                   <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center gap-2">
@@ -473,7 +463,6 @@ export default function CourseManagementPage() {
                   </div>
                 </section>
 
-                {/* Section 3: Additional Settings */}
                 <section className="mb-8">
                   <div className="flex items-center gap-2 mb-4">
                     <div className="w-6 h-6 rounded-lg bg-[#e2efe8] text-[#163e27] flex items-center justify-center">

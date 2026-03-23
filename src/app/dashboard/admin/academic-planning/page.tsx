@@ -8,13 +8,12 @@ import {
 } from "lucide-react";
 import { cn } from "../../../../lib/utils";
 
-// ─── Types ────────────────────────────────────────────────────────────────────
 type Day = "Mon" | "Tue" | "Wed" | "Thu" | "Fri";
 type Session = {
   id: string;
   day: Day;
-  startHour: number;   // 8–17
-  duration: number;    // in whole hours
+  startHour: number;   
+  duration: number;   
   subject: string;
   faculty: string;
   topic?: string;
@@ -42,7 +41,7 @@ const SUBJECTS = [
   "Carbon Sequestration", "Physical Training", "Field Exercises",
 ];
 
-// Per-subject colours
+
 type ColourSet = { pill: string; header: string; light: string; dot: string };
 const COLOURS: Record<string, ColourSet> = {
   "Forest Ecology":          { pill:"bg-emerald-100 border-emerald-200 text-emerald-900", header:"bg-emerald-200 text-emerald-900", light:"bg-emerald-50 border-emerald-200 text-emerald-900", dot:"bg-emerald-400" },
@@ -62,7 +61,6 @@ const COLOURS: Record<string, ColourSet> = {
 const clr = (s: string) => COLOURS[s] ?? COLOURS.default;
 function fmt(h: number) { return `${h > 12 ? h - 12 : h}:00 ${h >= 12 ? "PM" : "AM"}`; }
 
-// ─── Sample Data ──────────────────────────────────────────────────────────────
 const SAMPLE: Session[] = [
   { id:"1",  day:"Mon", startHour:8,  duration:2, subject:"Forest Ecology",          faculty:"Dr. Rajesh Kumar",        topic:"Ecosystem Dynamics",         room:"Lecture Hall A" },
   { id:"2",  day:"Mon", startHour:11, duration:1, subject:"GIS & Remote Sensing",    faculty:"Prof. Venkatesh Rao",     topic:"Introduction to GIS",        room:"Lab 2" },
@@ -80,14 +78,12 @@ const SAMPLE: Session[] = [
   { id:"14", day:"Fri", startHour:14, duration:2, subject:"GIS & Remote Sensing",    faculty:"Prof. Venkatesh Rao",     topic:"Satellite Image Analysis",    room:"Lab 2" },
 ];
 
-// ─── Empty form factory ───────────────────────────────────────────────────────
 const emptyForm = (day?: Day, hour?: number): Omit<Session,"id"> => ({
   day: day ?? "Mon", startHour: hour ?? 9, duration: 1,
   subject: SUBJECTS[0], faculty: FACULTY_LIST[0],
   topic: "", room: "", isSubstituted: false, originalFaculty: "",
 });
 
-// ─── Main Page ────────────────────────────────────────────────────────────────
 export default function AcademicPlanningPage() {
   const [sessions, setSessions] = useState<Session[]>(SAMPLE);
   const [detail,   setDetail]   = useState<Session | null>(null);
@@ -96,7 +92,6 @@ export default function AcademicPlanningPage() {
   const [modal,    setModal]    = useState<{ mode:"create"|"edit"; session?: Session; day?: Day; hour?: number } | null>(null);
   const [form,     setForm]     = useState<Omit<Session,"id">>(emptyForm());
 
-  // helpers
   const openCreate = (day: Day, hour: number) => {
     setForm(emptyForm(day, hour)); setModal({ mode:"create", day, hour }); setDetail(null);
   };
@@ -128,26 +123,22 @@ export default function AcademicPlanningPage() {
     setDetail(updated);
   };
 
-  // Get session for a given day+hour (returns session if this slot is covered)
   const sessionAt = (day: Day, hour: number) =>
     sessions.find(s => s.day === day && s.startHour <= hour && s.startHour + s.duration > hour);
-  // Is this the starting hour of a session?
   const sessionStart = (day: Day, hour: number) =>
     sessions.find(s => s.day === day && s.startHour === hour);
 
-  const SLOT_H = 64; // px per hour slot
+  const SLOT_H = 64; 
 
   return (
     <div className="flex flex-col h-[calc(100vh-60px)] overflow-hidden bg-[#f7f9f8]">
 
-      {/* ── Page Header ─────────────────────────────────────────────────── */}
       <div className="shrink-0 bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between">
         <div>
           <h1 className="text-[18px] font-bold text-gray-900 serif-font">Weekly Academic Timetable</h1>
           <p className="text-[12px] text-gray-500 mt-0.5">Click any empty cell to schedule a session · Click a session to view details</p>
         </div>
         <div className="flex items-center gap-3">
-          {/* Legend */}
           <div className="flex items-center gap-3 mr-2">
             {Object.entries(COLOURS).filter(([k]) => k !== "default").slice(0,5).map(([subj, c]) => (
               <div key={subj} className="flex items-center gap-1.5">
@@ -163,11 +154,9 @@ export default function AcademicPlanningPage() {
         </div>
       </div>
 
-      {/* ── Timetable Grid ───────────────────────────────────────────────── */}
       <div className="flex-1 overflow-auto">
         <div className="min-w-[700px]">
 
-          {/* Day Headers */}
           <div className="grid sticky top-0 z-20 bg-white border-b border-gray-200 shadow-sm"
             style={{ gridTemplateColumns: "72px repeat(5, 1fr)" }}>
             <div className="py-3 text-center text-[11px] font-bold text-gray-400 uppercase tracking-wider border-r border-gray-100"></div>
@@ -179,10 +168,8 @@ export default function AcademicPlanningPage() {
             ))}
           </div>
 
-          {/* Time + Cells */}
           <div className="grid relative" style={{ gridTemplateColumns: "72px repeat(5, 1fr)" }}>
 
-            {/* Time column */}
             <div className="border-r border-gray-100">
               {HOURS.map(h => (
                 <div key={h} className="border-b border-gray-100 flex items-start justify-end pr-3 pt-2"
@@ -192,12 +179,10 @@ export default function AcademicPlanningPage() {
               ))}
             </div>
 
-            {/* Day columns */}
             {DAYS.map((day, di) => (
               <div key={day} className="border-r border-gray-100 last:border-0 relative"
                 style={{ height: `${HOURS.length * SLOT_H}px` }}>
 
-                {/* Hour grid lines + click targets */}
                 {HOURS.map((hour, hi) => {
                   const occupied = !!sessionAt(day, hour);
                   return (
@@ -218,7 +203,6 @@ export default function AcademicPlanningPage() {
                   );
                 })}
 
-                {/* Sessions (absolutely positioned) */}
                 {sessions.filter(s => s.day === day).map(s => {
                   const top  = (s.startHour - HOURS[0]) * SLOT_H;
                   const height = s.duration * SLOT_H - 3;
@@ -253,11 +237,9 @@ export default function AcademicPlanningPage() {
         </div>
       </div>
 
-      {/* ── Session Detail Card ──────────────────────────────────────────── */}
       <AnimatePresence>
         {detail && (
           <>
-            {/* Backdrop */}
             <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}
               className="fixed inset-0 z-40" onClick={() => { setDetail(null); setSubModal(false); }}/>
 
@@ -279,9 +261,7 @@ export default function AcademicPlanningPage() {
                 </div>
               </div>
 
-              {/* Detail rows */}
               <div className="p-5 flex flex-col gap-3">
-                {/* Faculty */}
                 <div className="flex items-start gap-3">
                   <div className="w-7 h-7 rounded-lg bg-gray-100 flex items-center justify-center shrink-0">
                     <User className="w-3.5 h-3.5 text-gray-500"/>
@@ -302,7 +282,6 @@ export default function AcademicPlanningPage() {
                   </div>
                 </div>
 
-                {/* Timing */}
                 <div className="flex items-center gap-3">
                   <div className="w-7 h-7 rounded-lg bg-gray-100 flex items-center justify-center shrink-0">
                     <Clock className="w-3.5 h-3.5 text-gray-500"/>
@@ -313,7 +292,6 @@ export default function AcademicPlanningPage() {
                   </div>
                 </div>
 
-                {/* Room */}
                 {detail.room && (
                   <div className="flex items-center gap-3">
                     <div className="w-7 h-7 rounded-lg bg-gray-100 flex items-center justify-center shrink-0">
@@ -326,7 +304,6 @@ export default function AcademicPlanningPage() {
                   </div>
                 )}
 
-                {/* Substitute faculty inline */}
                 <AnimatePresence>
                   {subModal && (
                     <motion.div initial={{height:0,opacity:0}} animate={{height:"auto",opacity:1}} exit={{height:0,opacity:0}}
@@ -356,7 +333,6 @@ export default function AcademicPlanningPage() {
                 </AnimatePresence>
               </div>
 
-              {/* Action buttons */}
               <div className="px-5 pb-5 flex gap-2">
                 <button onClick={() => { setSubModal(v => !v); }}
                   className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-amber-50 text-amber-700 text-[12px] font-bold hover:bg-amber-100 transition-colors flex-1 justify-center">
@@ -376,7 +352,6 @@ export default function AcademicPlanningPage() {
         )}
       </AnimatePresence>
 
-      {/* ── Create / Edit Modal ──────────────────────────────────────────── */}
       <AnimatePresence>
         {modal && (
           <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}
@@ -396,7 +371,6 @@ export default function AcademicPlanningPage() {
 
               <div className="p-6 flex flex-col gap-4 max-h-[75vh] overflow-y-auto">
 
-                {/* Subject */}
                 <div>
                   <label className="text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1.5 block">Subject *</label>
                   <div className="relative">
@@ -408,15 +382,13 @@ export default function AcademicPlanningPage() {
                   </div>
                 </div>
 
-                {/* Topic */}
-                <div>
+=                <div>
                   <label className="text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1.5 block">Topic / Session Title</label>
                   <input value={form.topic ?? ""} onChange={e => setForm(f=>({...f,topic:e.target.value}))}
                     placeholder="e.g. Ecosystem Dynamics…"
                     className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-[13px] font-medium focus:outline-none focus:border-[#163e27] focus:ring-1 focus:ring-[#163e27] transition-all"/>
                 </div>
 
-                {/* Faculty */}
                 <div>
                   <label className="text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1.5 block">Teaching Faculty *</label>
                   <div className="relative">
@@ -428,7 +400,6 @@ export default function AcademicPlanningPage() {
                   </div>
                 </div>
 
-                {/* Day + Start Hour */}
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1.5 block">Day</label>
@@ -452,7 +423,6 @@ export default function AcademicPlanningPage() {
                   </div>
                 </div>
 
-                {/* Duration + Room */}
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1.5 block">Duration</label>

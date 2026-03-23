@@ -14,7 +14,6 @@ import {
   PieChart, Pie, Cell, CartesianGrid, AreaChart, Area
 } from "recharts";
 
-// ─── Data ────────────────────────────────────────────────────────────────────
 
 const attendanceWeek = [
   { day: "Mon", present: 92, absent: 8 },
@@ -97,12 +96,10 @@ const fade = {
   }),
 };
 
-// ─── Page ────────────────────────────────────────────────────────────────────
 export default function Dashboard() {
   return (
     <div className="p-6 md:p-8 pb-16 flex flex-col gap-6 max-w-400 mx-auto">
 
-      {/* Header */}
       <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}
         className="flex items-center justify-between">
         <div>
@@ -115,7 +112,6 @@ export default function Dashboard() {
         </span>
       </motion.div>
 
-      {/* ── BENTO ROW 1: KPI Hero Strip ───────────────────────────────────── */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
           { label: "Course Duration", val: "167 Days", sub: "Jan 15 – Jun 30", icon: CalendarDays, grad: "from-teal-500 to-teal-700" },
