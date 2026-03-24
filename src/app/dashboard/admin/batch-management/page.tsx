@@ -49,6 +49,12 @@ interface TraineeType {
   phone?: string;
 }
 
+interface CourseType {
+  id: number;
+  name: string;
+  code: string;
+}
+
 // Badge styling helper
 const badgeStyles: Record<BatchStatus, string> = {
   "Draft": "bg-gray-100 text-gray-700 border-gray-200",
@@ -111,22 +117,27 @@ export default function BatchManagementPage() {
     description: ""
   });
 
-  // Update selected batch when API data changes
+  // FIX 1: Reset selections when batch changes.
+  // Store the previous batchId as state. When it differs from the current one,
+  // update it AND reset both selection sets in the same render — React batches
+  // these setState calls so there is no cascading render cycle.
+  const [prevBatchId, setPrevBatchId] = useState<string | number | null>(null);
+  if (prevBatchId !== selectedBatchId) {
+    setPrevBatchId(selectedBatchId);
+    setSelectedAvailable(new Set());
+    setSelectedAssigned(new Set());
+  }
+
+  // Fetch batch details whenever selection changes
   useEffect(() => {
     if (selectedBatchId) {
       fetchBatchDetails(selectedBatchId);
     }
   }, [selectedBatchId, fetchBatchDetails]);
 
-  // Reset selections when batch changes
-  useEffect(() => {
-    setSelectedAvailable(new Set());
-    setSelectedAssigned(new Set());
-  }, [selectedBatchId]);
-
   // Get current batch from API
   const currentBatch = apiSelectedBatch as BatchType | null;
-  
+
   // Use the API's assigned and available trainees directly
   const assignedTrainees = apiAssignedTrainees as TraineeType[];
   const allAvailableTrainees = apiAvailableTrainees as TraineeType[];
@@ -135,7 +146,7 @@ export default function BatchManagementPage() {
   const availableTrainees = useMemo(() => {
     if (!allAvailableTrainees) return [];
     return allAvailableTrainees.filter((t) => {
-      if (search && !t.name.toLowerCase().includes(search.toLowerCase()) && 
+      if (search && !t.name.toLowerCase().includes(search.toLowerCase()) &&
           !t.roll_number.toLowerCase().includes(search.toLowerCase())) return false;
       if (genderFilter !== "All" && t.gender !== genderFilter) return false;
       if (serviceFilter !== "All" && t.service_type !== serviceFilter) return false;
@@ -184,7 +195,7 @@ export default function BatchManagementPage() {
       if (ids.length === 0) return;
 
       const newTotal = currentBatch.current_count + ids.length;
-      let warning;
+      let warning: string | undefined;
       if (newTotal > currentBatch.capacity) {
         warning = `Adding ${ids.length} trainees will exceed the batch capacity by ${newTotal - currentBatch.capacity}. Proceed anyway?`;
       }
@@ -200,7 +211,7 @@ export default function BatchManagementPage() {
     if (!currentBatch || !confirmModal) return;
 
     const { direction, traineeIds } = confirmModal;
-    let result: { success: boolean; warning?: string; error?: string; data?: any };
+    let result: { success: boolean; warning?: string; error?: string; data?: unknown };
 
     if (direction === "assign") {
       result = await assignTrainees(currentBatch.id, traineeIds);
@@ -258,7 +269,8 @@ export default function BatchManagementPage() {
         description: ""
       });
     } else if (result.errors) {
-      const errorMessages = Object.values(result.errors).flat().join("\n");
+      // FIX 2: typed `any` at line ~203 — result.errors values are string[]
+      const errorMessages = (Object.values(result.errors) as string[][]).flat().join("\n");
       alert(`Validation errors:\n${errorMessages}`);
     } else {
       alert(result.error || "Failed to create batch");
@@ -267,7 +279,6 @@ export default function BatchManagementPage() {
   };
 
   const handleSelectBatch = (batch: BatchType) => {
-    console.log('Selecting batch:', batch);
     setSelectedBatchId(batch.id);
   };
 
@@ -301,7 +312,7 @@ export default function BatchManagementPage() {
 
   return (
     <div className="flex h-[calc(100vh-60px)] bg-gray-50 overflow-hidden relative border-t border-gray-200">
-      
+
       {/* LEFT PANEL: Batch List */}
       <div className="w-[320px] shrink-0 bg-white border-r border-gray-200 flex flex-col z-10 shadow-[2px_0_10px_rgba(0,0,0,0.02)]">
         <div className="p-5 border-b border-gray-100 flex flex-col gap-4">
@@ -313,7 +324,7 @@ export default function BatchManagementPage() {
             <Plus className="w-4 h-4" /> Create New Batch
           </button>
         </div>
-        
+
         <div className="flex-1 overflow-y-auto p-4 space-y-3 nav-scrollbar bg-gray-50/50">
           {(apiBatches as BatchType[]).map((batch) => {
             const isSelected = selectedBatchId === batch.id;
@@ -326,8 +337,8 @@ export default function BatchManagementPage() {
                 onClick={() => handleSelectBatch(batch)}
                 className={cn(
                   "p-4 rounded-2xl border transition-all cursor-pointer relative group",
-                  isSelected 
-                    ? "bg-[#163e27] border-[#163e27] shadow-md shadow-[#163e27]/20" 
+                  isSelected
+                    ? "bg-[#163e27] border-[#163e27] shadow-md shadow-[#163e27]/20"
                     : "bg-white border-gray-200 hover:border-[#163e27]/30 hover:shadow-sm"
                 )}
               >
@@ -340,7 +351,7 @@ export default function BatchManagementPage() {
                       {batch.code} • {batch.course?.name || "No Course"}
                     </p>
                   </div>
-                  <span className={cn("inline-flex items-center gap-1.5 px-2 py-0.5 text-[10px] font-bold rounded-full border", 
+                  <span className={cn("inline-flex items-center gap-1.5 px-2 py-0.5 text-[10px] font-bold rounded-full border",
                     isSelected ? "bg-white/10 text-white border-white/20" : badgeStyles[batch.status]
                   )}>
                     {!isSelected && <span className="w-1 h-1 rounded-full currentColor opacity-75 bg-current" />}
@@ -356,8 +367,8 @@ export default function BatchManagementPage() {
                     </span>
                   </div>
                   <div className={cn("h-1.5 rounded-full overflow-hidden", isSelected ? "bg-white/20" : "bg-gray-100")}>
-                    <div 
-                      className={cn("h-full rounded-full transition-all duration-500", 
+                    <div
+                      className={cn("h-full rounded-full transition-all duration-500",
                         isSelected ? "bg-[#83e0ab]" : isOver ? "bg-red-500" : "bg-[#163e27]"
                       )}
                       style={{ width: `${fillPct}%` }}
@@ -365,18 +376,18 @@ export default function BatchManagementPage() {
                   </div>
                 </div>
 
-                <div className={cn("absolute right-4 bottom-4 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity", 
+                <div className={cn("absolute right-4 bottom-4 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity",
                   isSelected ? "hidden" : "block"
                 )}>
-                  <button 
-                    onClick={(e) => { e.stopPropagation(); handleUpdateStatus(batch.id, "Archived"); }} 
-                    className="p-1.5 text-gray-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors" 
+                  <button
+                    onClick={(e) => { e.stopPropagation(); handleUpdateStatus(batch.id, "Archived"); }}
+                    className="p-1.5 text-gray-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
                     title="Archive"
                   >
                     <Archive className="w-3.5 h-3.5" />
                   </button>
-                  <button 
-                    className="p-1.5 text-gray-400 hover:text-[#163e27] hover:bg-[#f0f8f3] rounded-lg transition-colors" 
+                  <button
+                    className="p-1.5 text-gray-400 hover:text-[#163e27] hover:bg-[#f0f8f3] rounded-lg transition-colors"
                     title="Edit"
                   >
                     <Edit2 className="w-3.5 h-3.5" />
@@ -423,7 +434,7 @@ export default function BatchManagementPage() {
                 </div>
                 <div className="flex items-center gap-2 bg-white border border-gray-200 rounded-lg p-1 shadow-sm">
                   <Filter className="w-3.5 h-3.5 text-gray-400 ml-2" />
-                  <select 
+                  <select
                     value={genderFilter} onChange={e => setGenderFilter(e.target.value as Gender)}
                     className="text-[12px] font-medium bg-transparent border-none focus:ring-0 cursor-pointer pr-6 py-1"
                   >
@@ -432,7 +443,7 @@ export default function BatchManagementPage() {
                     <option value="Female">Female</option>
                   </select>
                   <div className="w-px h-4 bg-gray-200" />
-                  <select 
+                  <select
                     value={serviceFilter} onChange={e => setServiceFilter(e.target.value as ServiceType)}
                     className="text-[12px] font-medium bg-transparent border-none focus:ring-0 cursor-pointer pr-6 py-1"
                   >
@@ -442,7 +453,7 @@ export default function BatchManagementPage() {
                     <option value="Other">Other</option>
                   </select>
                   <div className="w-px h-4 bg-gray-200" />
-                  <select 
+                  <select
                     value={statusFilter} onChange={e => setStatusFilter(e.target.value as EnrollmentStatus)}
                     className="text-[12px] font-medium bg-transparent border-none focus:ring-0 cursor-pointer pr-6 py-1"
                   >
@@ -456,7 +467,7 @@ export default function BatchManagementPage() {
 
             {/* Dual List Box Area */}
             <div className="flex-1 flex p-6 gap-6 overflow-hidden min-h-0 bg-[#fbfcfb]">
-              
+
               {/* Left Column: Available */}
               <div className="flex-1 flex flex-col bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden min-w-0">
                 <div className="px-5 py-4 border-b border-gray-100 bg-gray-50 flex items-center justify-between">
@@ -464,28 +475,28 @@ export default function BatchManagementPage() {
                     <h3 className="text-[13px] font-bold text-gray-800">Available Trainees</h3>
                     <span className="bg-gray-200 text-gray-600 text-[10px] font-bold px-2 py-0.5 rounded-full">{availableTrainees.length}</span>
                   </div>
-                  <button 
+                  <button
                     onClick={selectAllAvailable}
                     className="text-[11px] font-bold text-[#163e27] hover:underline"
                   >
                     {selectedAvailable.size === availableTrainees.length && availableTrainees.length > 0 ? "Deselect All" : "Select All"}
                   </button>
                 </div>
-                
+
                 <div className="flex-1 overflow-y-auto p-2">
                   {availableTrainees.map((t: TraineeType) => (
-                    <div 
+                    <div
                       key={t.id}
                       onClick={() => toggleAvailable(t.id)}
                       className={cn("flex items-center gap-3 p-3 rounded-xl cursor-pointer hover:bg-gray-50 transition-colors border",
                         selectedAvailable.has(String(t.id)) ? "bg-[#f0f8f3] border-[#83e0ab]" : "border-transparent"
                       )}
                     >
-                      <input 
-                        type="checkbox" 
-                        checked={selectedAvailable.has(String(t.id))} 
+                      <input
+                        type="checkbox"
+                        checked={selectedAvailable.has(String(t.id))}
                         onChange={() => {}}
-                        className="w-4 h-4 rounded text-[#163e27] focus:ring-[#163e27] border-gray-300" 
+                        className="w-4 h-4 rounded text-[#163e27] focus:ring-[#163e27] border-gray-300"
                       />
                       <div className="flex-1 min-w-0 flex items-center justify-between">
                         <div>
@@ -513,8 +524,8 @@ export default function BatchManagementPage() {
                   onClick={() => initiateTransfer("assign")}
                   disabled={selectedAvailable.size === 0}
                   className={cn("flex items-center justify-center w-12 h-12 rounded-full transition-all shadow-sm",
-                    selectedAvailable.size > 0 
-                      ? "bg-[#163e27] text-white hover:bg-[#1d4d31] hover:shadow-md hover:scale-105" 
+                    selectedAvailable.size > 0
+                      ? "bg-[#163e27] text-white hover:bg-[#1d4d31] hover:shadow-md hover:scale-105"
                       : "bg-gray-100 text-gray-400 cursor-not-allowed"
                   )}
                   title="Assign to Batch"
@@ -522,14 +533,14 @@ export default function BatchManagementPage() {
                   <ArrowRight className="w-5 h-5" />
                 </button>
                 <div className="text-[11px] font-bold text-gray-400">
-                  {selectedAvailable.size > 0 && `${selectedAvailable.size} sel` }
+                  {selectedAvailable.size > 0 && `${selectedAvailable.size} sel`}
                 </div>
                 <button
                   onClick={() => initiateTransfer("remove")}
                   disabled={selectedAssigned.size === 0}
                   className={cn("flex items-center justify-center w-12 h-12 rounded-full transition-all shadow-sm",
-                    selectedAssigned.size > 0 
-                      ? "bg-white border-2 border-rose-200 text-rose-500 hover:bg-rose-50 hover:border-rose-300 hover:scale-105" 
+                    selectedAssigned.size > 0
+                      ? "bg-white border-2 border-rose-200 text-rose-500 hover:bg-rose-50 hover:border-rose-300 hover:scale-105"
                       : "bg-gray-100 text-gray-400 border-2 border-transparent cursor-not-allowed"
                   )}
                   title="Remove from Batch"
@@ -545,28 +556,28 @@ export default function BatchManagementPage() {
                     <h3 className="text-[13px] font-bold text-[#163e27]">Assigned to Batch</h3>
                     <span className="bg-[#163e27] text-white text-[10px] font-bold px-2 py-0.5 rounded-full">{assignedTrainees.length}</span>
                   </div>
-                  <button 
+                  <button
                     onClick={selectAllAssigned}
                     className="text-[11px] font-bold text-[#163e27] hover:underline"
                   >
                     {selectedAssigned.size === assignedTrainees.length && assignedTrainees.length > 0 ? "Deselect All" : "Select All"}
                   </button>
                 </div>
-                
+
                 <div className="flex-1 overflow-y-auto p-2">
                   {assignedTrainees.map((t: TraineeType) => (
-                    <div 
+                    <div
                       key={t.id}
                       onClick={() => toggleAssigned(t.id)}
                       className={cn("flex items-center gap-3 p-3 rounded-xl cursor-pointer hover:bg-rose-50/50 transition-colors border",
                         selectedAssigned.has(String(t.id)) ? "bg-rose-50 border-rose-200" : "border-transparent"
                       )}
                     >
-                      <input 
-                        type="checkbox" 
-                        checked={selectedAssigned.has(String(t.id))} 
+                      <input
+                        type="checkbox"
+                        checked={selectedAssigned.has(String(t.id))}
                         onChange={() => {}}
-                        className="w-4 h-4 rounded text-rose-500 focus:ring-rose-500 border-gray-300" 
+                        className="w-4 h-4 rounded text-rose-500 focus:ring-rose-500 border-gray-300"
                       />
                       <div className="flex-1 min-w-0 flex items-center justify-between">
                         <div>
@@ -580,7 +591,7 @@ export default function BatchManagementPage() {
                   {assignedTrainees.length === 0 && (
                     <div className="h-full flex flex-col items-center justify-center text-gray-400 p-6 text-center">
                       <BookOpen className="w-8 h-8 mb-2 opacity-30 text-[#163e27]" />
-                      <p className="text-[13px] font-medium">No trainees assigned yet.<br/>Select from the left to assign.</p>
+                      <p className="text-[13px] font-medium">No trainees assigned yet.<br />Select from the left to assign.</p>
                     </div>
                   )}
                 </div>
@@ -601,11 +612,11 @@ export default function BatchManagementPage() {
       <AnimatePresence>
         {confirmModal && (
           <div className="fixed inset-0 z-[200] grid place-items-center p-4">
-            <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}
-              className="absolute inset-0 bg-black/40 backdrop-blur-[2px]" 
-              onClick={() => setConfirmModal(null)} 
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-black/40 backdrop-blur-[2px]"
+              onClick={() => setConfirmModal(null)}
             />
-            <motion.div initial={{scale:0.95, y:15, opacity:0}} animate={{scale:1, y:0, opacity:1}} exit={{scale:0.95, y:15, opacity:0}}
+            <motion.div initial={{ scale: 0.95, y: 15, opacity: 0 }} animate={{ scale: 1, y: 0, opacity: 1 }} exit={{ scale: 0.95, y: 15, opacity: 0 }}
               className="bg-white rounded-2xl shadow-2xl z-10 w-full max-w-sm overflow-hidden"
             >
               <div className={cn("px-6 py-4 flex items-center gap-3", confirmModal.direction === "assign" ? (confirmModal.warning ? "bg-amber-50" : "bg-[#f0f8f3]") : "bg-rose-50")}>
@@ -627,8 +638,8 @@ export default function BatchManagementPage() {
                   <button onClick={() => setConfirmModal(null)} className="px-4 py-2 rounded-lg text-gray-600 text-[13px] font-bold hover:bg-gray-100 transition-colors">
                     Cancel
                   </button>
-                  <button 
-                    onClick={executeTransfer} 
+                  <button
+                    onClick={executeTransfer}
                     className={cn("px-5 py-2 rounded-lg text-[13px] font-bold text-white transition-colors shadow-sm",
                       confirmModal.direction === "assign" ? "bg-[#163e27] hover:bg-[#1d4d31]" : "bg-rose-600 hover:bg-rose-700"
                     )}
@@ -646,11 +657,11 @@ export default function BatchManagementPage() {
       <AnimatePresence>
         {createModalOpen && (
           <div className="fixed inset-0 z-[200] grid place-items-center p-4">
-            <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}
-              className="absolute inset-0 bg-black/40 backdrop-blur-[2px]" 
-              onClick={() => setCreateModalOpen(false)} 
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-black/40 backdrop-blur-[2px]"
+              onClick={() => setCreateModalOpen(false)}
             />
-            <motion.div initial={{scale:0.96, y:15, opacity:0}} animate={{scale:1, y:0, opacity:1}} exit={{scale:0.96, y:15, opacity:0}}
+            <motion.div initial={{ scale: 0.96, y: 15, opacity: 0 }} animate={{ scale: 1, y: 0, opacity: 1 }} exit={{ scale: 0.96, y: 15, opacity: 0 }}
               className="bg-white rounded-2xl shadow-2xl z-10 w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]"
             >
               <div className="px-8 py-6 border-b border-gray-100 flex items-center justify-between shrink-0 bg-white">
@@ -673,9 +684,10 @@ export default function BatchManagementPage() {
                   <div>
                     <label className="text-[13px] font-bold text-gray-800 mb-2 block">Course <span className="text-rose-500">*</span></label>
                     <div className="relative">
+                      {/* FIX 3: typed `any` at line ~678 — course typed as CourseType */}
                       <select value={newBatch.course_id} onChange={e => setNewBatch(prev => ({ ...prev, course_id: e.target.value }))} className="w-full appearance-none px-4 py-3 bg-white border border-gray-200 rounded-xl text-[14px] font-medium text-gray-700 focus:outline-none focus:border-[#163e27] focus:ring-1 focus:ring-[#163e27] transition-all pr-10">
                         <option value="">Select course</option>
-                        {availableCourses.map((course: any) => (
+                        {(availableCourses as CourseType[]).map((course) => (
                           <option key={course.id} value={course.id}>{course.name} ({course.code})</option>
                         ))}
                       </select>
