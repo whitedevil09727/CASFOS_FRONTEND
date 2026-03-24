@@ -1,7 +1,7 @@
 "use client";
 
 import { useBatches } from '@/hooks/useBatches';
-import React, { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Search, Edit2, Archive, Filter, ArrowRight, ArrowLeft,
@@ -55,6 +55,26 @@ interface CourseType {
   code: string;
 }
 
+interface BatchFormState {
+  code: string;
+  course_id: string;
+  startDate: string;
+  endDate: string;
+  capacity: number;
+  lead_instructor: string;
+  description: string;
+}
+
+const emptyBatchForm = (): BatchFormState => ({
+  code: "",
+  course_id: "",
+  startDate: "",
+  endDate: "",
+  capacity: 30,
+  lead_instructor: "",
+  description: ""
+});
+
 // Badge styling helper
 const badgeStyles: Record<BatchStatus, string> = {
   "Draft": "bg-gray-100 text-gray-700 border-gray-200",
@@ -81,7 +101,6 @@ interface ConfirmModalState {
 export default function BatchManagementPage() {
   const {
     batches: apiBatches,
-    trainees: apiTrainees,
     availableCourses,
     selectedBatch: apiSelectedBatch,
     assignedTrainees: apiAssignedTrainees,
@@ -90,10 +109,10 @@ export default function BatchManagementPage() {
     error,
     fetchBatchDetails,
     createBatch,
+    updateBatch,
     updateBatchStatus,
     assignTrainees,
     removeTrainees,
-    setSelectedBatch,
   } = useBatches();
 
   // Local state for UI
@@ -105,29 +124,15 @@ export default function BatchManagementPage() {
   const [selectedAvailable, setSelectedAvailable] = useState<Set<string>>(new Set());
   const [selectedAssigned, setSelectedAssigned] = useState<Set<string>>(new Set());
   const [confirmModal, setConfirmModal] = useState<ConfirmModalState | null>(null);
-  const [createModalOpen, setCreateModalOpen] = useState(false);
+  const [batchModalOpen, setBatchModalOpen] = useState(false);
+  const [editingBatchId, setEditingBatchId] = useState<string | number | null>(null);
   const [saving, setSaving] = useState(false);
-  const [newBatch, setNewBatch] = useState({
-    code: "",
-    course_id: "",
-    startDate: "",
-    endDate: "",
-    capacity: 30,
-    lead_instructor: "",
-    description: ""
-  });
+  const [batchForm, setBatchForm] = useState<BatchFormState>(emptyBatchForm());
 
   // FIX 1: Reset selections when batch changes.
   // Store the previous batchId as state. When it differs from the current one,
   // update it AND reset both selection sets in the same render — React batches
   // these setState calls so there is no cascading render cycle.
-  const [prevBatchId, setPrevBatchId] = useState<string | number | null>(null);
-  if (prevBatchId !== selectedBatchId) {
-    setPrevBatchId(selectedBatchId);
-    setSelectedAvailable(new Set());
-    setSelectedAssigned(new Set());
-  }
-
   // Fetch batch details whenever selection changes
   useEffect(() => {
     if (selectedBatchId) {
@@ -137,6 +142,7 @@ export default function BatchManagementPage() {
 
   // Get current batch from API
   const currentBatch = apiSelectedBatch as BatchType | null;
+  const isEditingBatch = editingBatchId !== null;
 
   // Use the API's assigned and available trainees directly
   const assignedTrainees = apiAssignedTrainees as TraineeType[];
@@ -238,47 +244,76 @@ export default function BatchManagementPage() {
     }
   };
 
-  const handleCreateBatch = async () => {
-    if (!newBatch.code || !newBatch.course_id || !newBatch.startDate || !newBatch.endDate) {
-      alert("Please fill all required fields");
+  const closeBatchModal = () => {
+    setBatchModalOpen(false);
+    setEditingBatchId(null);
+    setBatchForm(emptyBatchForm());
+  };
+
+  const openCreateBatchModal = () => {
+    setEditingBatchId(null);
+    setBatchForm(emptyBatchForm());
+    setBatchModalOpen(true);
+  };
+
+  const openEditBatchModal = (batch: BatchType) => {
+    setEditingBatchId(batch.id);
+    setBatchForm({
+      code: batch.code,
+      course_id: String(batch.course_id ?? batch.course?.id ?? ""),
+      startDate: batch.start_date ?? "",
+      endDate: batch.end_date ?? "",
+      capacity: batch.capacity,
+      lead_instructor: batch.lead_instructor ?? "",
+      description: batch.description ?? ""
+    });
+    setBatchModalOpen(true);
+  };
+
+  const handleSaveBatch = async () => {
+    if (!batchForm.code || !batchForm.course_id || !batchForm.startDate || !batchForm.endDate || batchForm.capacity < 1) {
+      alert("Please fill all required fields with valid values");
       return;
     }
 
+    if (batchForm.endDate < batchForm.startDate) {
+      alert("End date must be on or after the start date");
+      return;
+    }
+    const payload = {
+      code: batchForm.code.trim(),
+      name: `Batch ${batchForm.code.trim()}`,
+      course_id: parseInt(batchForm.course_id, 10),
+      capacity: batchForm.capacity,
+      status: isEditingBatch ? (currentBatch?.status ?? "Draft") : ("Draft" as BatchStatus),
+      startDate: batchForm.startDate,
+      endDate: batchForm.endDate,
+      lead_instructor: batchForm.lead_instructor.trim(),
+      description: batchForm.description.trim(),
+    };
+
     setSaving(true);
-    const result = await createBatch({
-      code: newBatch.code,
-      name: `Batch ${newBatch.code}`,
-      course_id: parseInt(newBatch.course_id),
-      capacity: newBatch.capacity,
-      status: "Draft" as BatchStatus,
-      startDate: newBatch.startDate,
-      endDate: newBatch.endDate,
-      lead_instructor: newBatch.lead_instructor,
-      description: newBatch.description,
-    });
+    const result = isEditingBatch && editingBatchId !== null
+      ? await updateBatch(editingBatchId, payload)
+      : await createBatch(payload);
 
     if (result.success) {
-      setCreateModalOpen(false);
-      setNewBatch({
-        code: "",
-        course_id: "",
-        startDate: "",
-        endDate: "",
-        capacity: 30,
-        lead_instructor: "",
-        description: ""
-      });
+      closeBatchModal();
     } else if (result.errors) {
       // FIX 2: typed `any` at line ~203 — result.errors values are string[]
       const errorMessages = (Object.values(result.errors) as string[][]).flat().join("\n");
       alert(`Validation errors:\n${errorMessages}`);
     } else {
-      alert(result.error || "Failed to create batch");
+      alert(result.error || `Failed to ${isEditingBatch ? "update" : "create"} batch`);
     }
     setSaving(false);
   };
 
   const handleSelectBatch = (batch: BatchType) => {
+    if (selectedBatchId !== batch.id) {
+      setSelectedAvailable(new Set());
+      setSelectedAssigned(new Set());
+    }
     setSelectedBatchId(batch.id);
   };
 
@@ -320,7 +355,7 @@ export default function BatchManagementPage() {
             <h2 className="text-[18px] font-extrabold text-[#111827] serif-font tracking-tight">Batches</h2>
             <p className="text-[12px] text-gray-500 font-medium mt-1">Select a batch to manage allocation</p>
           </div>
-          <button onClick={() => setCreateModalOpen(true)} className="w-full flex items-center justify-center gap-2 bg-[#163e27] text-white px-4 py-2.5 rounded-xl font-bold text-[13px] hover:bg-[#1d4d31] transition-all shadow-[0_4px_12px_rgba(22,62,39,0.2)] hover:shadow-[0_6px_16px_rgba(22,62,39,0.3)] hover:-translate-y-0.5">
+          <button onClick={openCreateBatchModal} className="w-full flex items-center justify-center gap-2 bg-[#163e27] text-white px-4 py-2.5 rounded-xl font-bold text-[13px] hover:bg-[#1d4d31] transition-all shadow-[0_4px_12px_rgba(22,62,39,0.2)] hover:shadow-[0_6px_16px_rgba(22,62,39,0.3)] hover:-translate-y-0.5">
             <Plus className="w-4 h-4" /> Create New Batch
           </button>
         </div>
@@ -336,7 +371,7 @@ export default function BatchManagementPage() {
                 key={batch.id}
                 onClick={() => handleSelectBatch(batch)}
                 className={cn(
-                  "p-4 rounded-2xl border transition-all cursor-pointer relative group",
+                  "p-4 rounded-2xl border transition-all cursor-pointer",
                   isSelected
                     ? "bg-[#163e27] border-[#163e27] shadow-md shadow-[#163e27]/20"
                     : "bg-white border-gray-200 hover:border-[#163e27]/30 hover:shadow-sm"
@@ -375,24 +410,6 @@ export default function BatchManagementPage() {
                     />
                   </div>
                 </div>
-
-                <div className={cn("absolute right-4 bottom-4 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity",
-                  isSelected ? "hidden" : "block"
-                )}>
-                  <button
-                    onClick={(e) => { e.stopPropagation(); handleUpdateStatus(batch.id, "Archived"); }}
-                    className="p-1.5 text-gray-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
-                    title="Archive"
-                  >
-                    <Archive className="w-3.5 h-3.5" />
-                  </button>
-                  <button
-                    className="p-1.5 text-gray-400 hover:text-[#163e27] hover:bg-[#f0f8f3] rounded-lg transition-colors"
-                    title="Edit"
-                  >
-                    <Edit2 className="w-3.5 h-3.5" />
-                  </button>
-                </div>
               </div>
             );
           })}
@@ -404,19 +421,39 @@ export default function BatchManagementPage() {
         {currentBatch ? (
           <>
             {/* Top Bar Workspace Info */}
-            <div className="px-6 py-5 border-b border-gray-100 bg-white flex items-center justify-between shrink-0">
-              <div>
+            <div className="px-6 py-5 border-b border-gray-100 bg-white flex items-start justify-between gap-4 shrink-0">
+              <div className="min-w-0">
                 <h2 className="text-[20px] font-extrabold text-gray-900 serif-font">Trainee Allocation: {currentBatch.name}</h2>
                 <p className="text-[13px] text-gray-500 font-medium mt-1">
                   Manage participants for this batch. Select trainees and move them between available and assigned lists.
                 </p>
               </div>
-              {currentBatch.current_count >= currentBatch.capacity && currentBatch.status !== "Archived" && (
-                <div className="flex items-center gap-2 bg-amber-50 text-amber-800 px-3 py-1.5 rounded-lg border border-amber-200">
-                  <AlertTriangle className="w-4 h-4" />
-                  <span className="text-[12px] font-bold">Capacity Full</span>
-                </div>
-              )}
+              <div className="flex flex-wrap items-center justify-end gap-3 shrink-0">
+                {currentBatch.current_count >= currentBatch.capacity && currentBatch.status !== "Archived" && (
+                  <div className="flex items-center gap-2 bg-amber-50 text-amber-800 px-3 py-1.5 rounded-lg border border-amber-200">
+                    <AlertTriangle className="w-4 h-4" />
+                    <span className="text-[12px] font-bold">Capacity Full</span>
+                  </div>
+                )}
+                <button
+                  onClick={() => openEditBatchModal(currentBatch)}
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-[#d1e8db] bg-[#f0f8f3] text-[#163e27] text-[13px] font-bold hover:bg-[#e6f4ec] transition-colors"
+                  title="Edit selected batch"
+                >
+                  <Edit2 className="w-4 h-4" />
+                  Edit Batch
+                </button>
+                {currentBatch.status !== "Archived" && (
+                  <button
+                    onClick={() => handleUpdateStatus(currentBatch.id, "Archived")}
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-rose-200 bg-rose-50 text-rose-700 text-[13px] font-bold hover:bg-rose-100 transition-colors"
+                    title="Archive selected batch"
+                  >
+                    <Archive className="w-4 h-4" />
+                    Archive Batch
+                  </button>
+                )}
+              </div>
             </div>
 
             {/* Filters */}
@@ -653,23 +690,25 @@ export default function BatchManagementPage() {
         )}
       </AnimatePresence>
 
-      {/* Create Batch Modal */}
+      {/* Batch Modal */}
       <AnimatePresence>
-        {createModalOpen && (
+        {batchModalOpen && (
           <div className="fixed inset-0 z-[200] grid place-items-center p-4">
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
               className="absolute inset-0 bg-black/40 backdrop-blur-[2px]"
-              onClick={() => setCreateModalOpen(false)}
+              onClick={closeBatchModal}
             />
             <motion.div initial={{ scale: 0.96, y: 15, opacity: 0 }} animate={{ scale: 1, y: 0, opacity: 1 }} exit={{ scale: 0.96, y: 15, opacity: 0 }}
               className="bg-white rounded-2xl shadow-2xl z-10 w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]"
             >
               <div className="px-8 py-6 border-b border-gray-100 flex items-center justify-between shrink-0 bg-white">
                 <div>
-                  <h2 className="text-[20px] font-bold text-[#1f2937] serif-font tracking-tight">Create New Batch</h2>
-                  <p className="text-[13px] text-[#6b7280] font-medium mt-1">Define batch parameters for the selected training course.</p>
+                  <h2 className="text-[20px] font-bold text-[#1f2937] serif-font tracking-tight">{isEditingBatch ? "Edit Batch" : "Create New Batch"}</h2>
+                  <p className="text-[13px] text-[#6b7280] font-medium mt-1">
+                    {isEditingBatch ? "Update batch details for the selected training course." : "Define batch parameters for the selected training course."}
+                  </p>
                 </div>
-                <button onClick={() => setCreateModalOpen(false)} className="p-2 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-colors">
+                <button onClick={closeBatchModal} className="p-2 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-colors">
                   <X className="w-5 h-5" />
                 </button>
               </div>
@@ -678,14 +717,14 @@ export default function BatchManagementPage() {
                 <div className="grid grid-cols-2 gap-x-6 gap-y-7">
                   <div>
                     <label className="text-[13px] font-bold text-gray-800 mb-2 block">Batch Code <span className="text-rose-500">*</span></label>
-                    <input type="text" placeholder="e.g., IFS-2026-A" value={newBatch.code} onChange={e => setNewBatch(prev => ({ ...prev, code: e.target.value }))} className="w-full px-4 py-3 bg-[#f8fafc] border-2 border-[#163e27]/20 rounded-xl text-[14px] font-medium text-gray-900 focus:outline-none focus:border-[#163e27] focus:ring-1 focus:ring-[#163e27] transition-all" />
+                    <input type="text" placeholder="e.g., IFS-2026-A" value={batchForm.code} onChange={e => setBatchForm(prev => ({ ...prev, code: e.target.value }))} className="w-full px-4 py-3 bg-[#f8fafc] border-2 border-[#163e27]/20 rounded-xl text-[14px] font-medium text-gray-900 focus:outline-none focus:border-[#163e27] focus:ring-1 focus:ring-[#163e27] transition-all" />
                   </div>
 
                   <div>
                     <label className="text-[13px] font-bold text-gray-800 mb-2 block">Course <span className="text-rose-500">*</span></label>
                     <div className="relative">
                       {/* FIX 3: typed `any` at line ~678 — course typed as CourseType */}
-                      <select value={newBatch.course_id} onChange={e => setNewBatch(prev => ({ ...prev, course_id: e.target.value }))} className="w-full appearance-none px-4 py-3 bg-white border border-gray-200 rounded-xl text-[14px] font-medium text-gray-700 focus:outline-none focus:border-[#163e27] focus:ring-1 focus:ring-[#163e27] transition-all pr-10">
+                      <select value={batchForm.course_id} onChange={e => setBatchForm(prev => ({ ...prev, course_id: e.target.value }))} className="w-full appearance-none px-4 py-3 bg-white border border-gray-200 rounded-xl text-[14px] font-medium text-gray-700 focus:outline-none focus:border-[#163e27] focus:ring-1 focus:ring-[#163e27] transition-all pr-10">
                         <option value="">Select course</option>
                         {(availableCourses as CourseType[]).map((course) => (
                           <option key={course.id} value={course.id}>{course.name} ({course.code})</option>
@@ -697,36 +736,36 @@ export default function BatchManagementPage() {
 
                   <div>
                     <label className="text-[13px] font-bold text-gray-800 mb-2 block">Start Date <span className="text-rose-500">*</span></label>
-                    <input type="date" value={newBatch.startDate} onChange={e => setNewBatch(prev => ({ ...prev, startDate: e.target.value }))} className="w-full px-4 py-3 bg-[#f8fafc] border border-gray-200 rounded-xl text-[14px] font-medium text-gray-700 focus:outline-none focus:border-[#163e27] transition-all" />
+                    <input type="date" value={batchForm.startDate} onChange={e => setBatchForm(prev => ({ ...prev, startDate: e.target.value }))} className="w-full px-4 py-3 bg-[#f8fafc] border border-gray-200 rounded-xl text-[14px] font-medium text-gray-700 focus:outline-none focus:border-[#163e27] transition-all" />
                   </div>
 
                   <div>
                     <label className="text-[13px] font-bold text-gray-800 mb-2 block">End Date <span className="text-rose-500">*</span></label>
-                    <input type="date" value={newBatch.endDate} onChange={e => setNewBatch(prev => ({ ...prev, endDate: e.target.value }))} className="w-full px-4 py-3 bg-[#f8fafc] border border-gray-200 rounded-xl text-[14px] font-medium text-gray-700 focus:outline-none focus:border-[#163e27] transition-all" />
+                    <input type="date" value={batchForm.endDate} onChange={e => setBatchForm(prev => ({ ...prev, endDate: e.target.value }))} className="w-full px-4 py-3 bg-[#f8fafc] border border-gray-200 rounded-xl text-[14px] font-medium text-gray-700 focus:outline-none focus:border-[#163e27] transition-all" />
                   </div>
 
                   <div>
                     <label className="text-[13px] font-bold text-gray-800 mb-2 block">Max Capacity <span className="text-rose-500">*</span></label>
-                    <input type="number" placeholder="e.g., 30" value={newBatch.capacity} onChange={e => setNewBatch(prev => ({ ...prev, capacity: parseInt(e.target.value) }))} className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl text-[14px] font-medium text-gray-700 focus:outline-none focus:border-[#163e27] transition-all" />
+                    <input type="number" min="1" placeholder="e.g., 30" value={batchForm.capacity} onChange={e => setBatchForm(prev => ({ ...prev, capacity: Number.isNaN(parseInt(e.target.value, 10)) ? 0 : parseInt(e.target.value, 10) }))} className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl text-[14px] font-medium text-gray-700 focus:outline-none focus:border-[#163e27] transition-all" />
                   </div>
 
                   <div>
                     <label className="text-[13px] font-bold text-gray-800 mb-2 block">Lead Instructor</label>
-                    <input type="text" placeholder="e.g., Col. A. Sharma" value={newBatch.lead_instructor} onChange={e => setNewBatch(prev => ({ ...prev, lead_instructor: e.target.value }))} className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl text-[14px] font-medium text-gray-700 focus:outline-none focus:border-[#163e27] transition-all" />
+                    <input type="text" placeholder="e.g., Col. A. Sharma" value={batchForm.lead_instructor} onChange={e => setBatchForm(prev => ({ ...prev, lead_instructor: e.target.value }))} className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl text-[14px] font-medium text-gray-700 focus:outline-none focus:border-[#163e27] transition-all" />
                   </div>
 
                   <div className="col-span-2">
                     <label className="text-[13px] font-bold text-gray-800 mb-2 block">Description</label>
-                    <textarea rows={3} placeholder="Additional details about this batch..." value={newBatch.description} onChange={e => setNewBatch(prev => ({ ...prev, description: e.target.value }))} className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl text-[14px] font-medium text-gray-700 focus:outline-none focus:border-[#163e27] transition-all resize-none" />
+                    <textarea rows={3} placeholder="Additional details about this batch..." value={batchForm.description} onChange={e => setBatchForm(prev => ({ ...prev, description: e.target.value }))} className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl text-[14px] font-medium text-gray-700 focus:outline-none focus:border-[#163e27] transition-all resize-none" />
                   </div>
                 </div>
               </div>
 
               <div className="shrink-0 bg-white border-t border-gray-100 px-8 py-5 flex items-center justify-end gap-4">
-                <button onClick={() => setCreateModalOpen(false)} className="px-6 py-2.5 rounded-xl border border-gray-200 text-[#4b5563] font-bold text-[14px] hover:bg-gray-50 transition-colors">Cancel</button>
-                <button onClick={handleCreateBatch} disabled={saving} className="px-6 py-2.5 rounded-xl text-[14px] font-bold text-white transition-all shadow-sm bg-[#163e27] hover:bg-[#1d4d31] disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2">
+                <button onClick={closeBatchModal} className="px-6 py-2.5 rounded-xl border border-gray-200 text-[#4b5563] font-bold text-[14px] hover:bg-gray-50 transition-colors">Cancel</button>
+                <button onClick={handleSaveBatch} disabled={saving} className="px-6 py-2.5 rounded-xl text-[14px] font-bold text-white transition-all shadow-sm bg-[#163e27] hover:bg-[#1d4d31] disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2">
                   {saving && <Loader2 className="w-4 h-4 animate-spin" />}
-                  {saving ? "Creating..." : "Create Batch"}
+                  {saving ? (isEditingBatch ? "Saving..." : "Creating...") : (isEditingBatch ? "Save Changes" : "Create Batch")}
                 </button>
               </div>
             </motion.div>

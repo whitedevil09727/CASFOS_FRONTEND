@@ -18,7 +18,8 @@ interface Course {
   // add other course properties as needed
 }
 
-interface BatchWithTrainees extends Batch {
+interface BatchWithTrainees {
+  batch: Batch;
   assigned_trainees?: Trainee[];
   available_trainees?: Trainee[];
 }
