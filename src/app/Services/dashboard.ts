@@ -30,7 +30,8 @@ export interface DashboardData {
     role_display: string;
   };
   current_course_director: CourseDirector | null;
-  recent_users: any[];
+  // recent_users:any[] ;
+  // recent_users: User[];
   message: string;
 }
 

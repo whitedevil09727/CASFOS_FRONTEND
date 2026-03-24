@@ -2,13 +2,25 @@
 import api from './api';
 import { Batch, BatchFormData, Trainee } from '@/app/types/Batch';
 
-interface ApiResponse<T = any> {
+interface ApiResponse<T = void> {
   success: boolean;
   data?: T;
   message?: string;
   error?: string;
   errors?: Record<string, string[]>;
   warning?: string;
+}
+
+// Define proper types for the API responses
+interface Course {
+  id: string | number;
+  title: string;
+  // add other course properties as needed
+}
+
+interface BatchWithTrainees extends Batch {
+  assigned_trainees?: Trainee[];
+  available_trainees?: Trainee[];
 }
 
 class BatchApiService {
@@ -21,17 +33,18 @@ class BatchApiService {
         data: response.data.data,
         message: response.data.message
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Get all batches error:', error);
+      const axiosError = error as { response?: { data?: { message?: string } } };
       return {
         success: false,
-        error: error.response?.data?.message || 'Failed to fetch batches'
+        error: axiosError.response?.data?.message || 'Failed to fetch batches'
       };
     }
   }
 
   // Get available courses (published only)
-  async getAvailableCourses(): Promise<ApiResponse<any[]>> {
+  async getAvailableCourses(): Promise<ApiResponse<Course[]>> {
     try {
       const response = await api.get('/batches/available-courses');
       return {
@@ -39,11 +52,12 @@ class BatchApiService {
         data: response.data.data,
         message: response.data.message
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Get available courses error:', error);
+      const axiosError = error as { response?: { data?: { message?: string } } };
       return {
         success: false,
-        error: error.response?.data?.message || 'Failed to fetch courses'
+        error: axiosError.response?.data?.message || 'Failed to fetch courses'
       };
     }
   }
@@ -57,17 +71,18 @@ class BatchApiService {
         data: response.data.data,
         message: response.data.message
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Get trainees error:', error);
+      const axiosError = error as { response?: { data?: { message?: string } } };
       return {
         success: false,
-        error: error.response?.data?.message || 'Failed to fetch trainees'
+        error: axiosError.response?.data?.message || 'Failed to fetch trainees'
       };
     }
   }
 
   // Get batch with assigned and available trainees
-  async getBatchWithTrainees(batchId: string | number): Promise<ApiResponse<any>> {
+  async getBatchWithTrainees(batchId: string | number): Promise<ApiResponse<BatchWithTrainees>> {
     try {
       const response = await api.get(`/batches/${batchId}/with-trainees`);
       return {
@@ -75,11 +90,12 @@ class BatchApiService {
         data: response.data.data,
         message: response.data.message
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Get batch with trainees error:', error);
+      const axiosError = error as { response?: { data?: { message?: string } } };
       return {
         success: false,
-        error: error.response?.data?.message || 'Failed to fetch batch details'
+        error: axiosError.response?.data?.message || 'Failed to fetch batch details'
       };
     }
   }
@@ -93,12 +109,20 @@ class BatchApiService {
         data: response.data.data,
         message: response.data.message
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Create batch error:', error);
+      const axiosError = error as { 
+        response?: { 
+          data?: { 
+            message?: string;
+            errors?: Record<string, string[]>;
+          } 
+        } 
+      };
       return {
         success: false,
-        error: error.response?.data?.message || 'Failed to create batch',
-        errors: error.response?.data?.errors
+        error: axiosError.response?.data?.message || 'Failed to create batch',
+        errors: axiosError.response?.data?.errors
       };
     }
   }
@@ -112,12 +136,20 @@ class BatchApiService {
         data: response.data.data,
         message: response.data.message
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Update batch error:', error);
+      const axiosError = error as { 
+        response?: { 
+          data?: { 
+            message?: string;
+            errors?: Record<string, string[]>;
+          } 
+        } 
+      };
       return {
         success: false,
-        error: error.response?.data?.message || 'Failed to update batch',
-        errors: error.response?.data?.errors
+        error: axiosError.response?.data?.message || 'Failed to update batch',
+        errors: axiosError.response?.data?.errors
       };
     }
   }
@@ -131,17 +163,18 @@ class BatchApiService {
         data: response.data.data,
         message: response.data.message
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Update batch status error:', error);
+      const axiosError = error as { response?: { data?: { message?: string } } };
       return {
         success: false,
-        error: error.response?.data?.message || 'Failed to update status'
+        error: axiosError.response?.data?.message || 'Failed to update status'
       };
     }
   }
 
   // Assign trainees to batch
-  async assignTrainees(batchId: string | number, traineeIds: string[]): Promise<ApiResponse<any>> {
+  async assignTrainees(batchId: string | number, traineeIds: string[]): Promise<ApiResponse<{ warning?: string }>> {
     try {
       const response = await api.post(`/batches/${batchId}/assign`, { trainee_ids: traineeIds });
       return {
@@ -150,17 +183,18 @@ class BatchApiService {
         message: response.data.message,
         warning: response.data.warning
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Assign trainees error:', error);
+      const axiosError = error as { response?: { data?: { message?: string } } };
       return {
         success: false,
-        error: error.response?.data?.message || 'Failed to assign trainees'
+        error: axiosError.response?.data?.message || 'Failed to assign trainees'
       };
     }
   }
 
   // Remove trainees from batch
-  async removeTrainees(batchId: string | number, traineeIds: string[]): Promise<ApiResponse<any>> {
+  async removeTrainees(batchId: string | number, traineeIds: string[]): Promise<ApiResponse<void>> {
     try {
       const response = await api.post(`/batches/${batchId}/remove`, { trainee_ids: traineeIds });
       return {
@@ -168,28 +202,30 @@ class BatchApiService {
         data: response.data.data,
         message: response.data.message
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Remove trainees error:', error);
+      const axiosError = error as { response?: { data?: { message?: string } } };
       return {
         success: false,
-        error: error.response?.data?.message || 'Failed to remove trainees'
+        error: axiosError.response?.data?.message || 'Failed to remove trainees'
       };
     }
   }
 
   // Delete batch
-  async deleteBatch(id: string | number): Promise<ApiResponse> {
+  async deleteBatch(id: string | number): Promise<ApiResponse<void>> {
     try {
       const response = await api.delete(`/batches/${id}`);
       return {
         success: true,
         message: response.data.message
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Delete batch error:', error);
+      const axiosError = error as { response?: { data?: { message?: string } } };
       return {
         success: false,
-        error: error.response?.data?.message || 'Failed to delete batch'
+        error: axiosError.response?.data?.message || 'Failed to delete batch'
       };
     }
   }

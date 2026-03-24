@@ -2,7 +2,7 @@
 import api from './api';
 import { Course, CourseFormData, Status } from '@/app/types/course';
 
-interface ApiResponse<T = any> {
+interface ApiResponse<T = void> {
   success: boolean;
   data?: T;
   message?: string;
@@ -16,15 +16,15 @@ class CourseApiService {
       const response = await api.get('/courses');
       return {
         success: true,
-        data: response.data.data || response.data,
+        data: response.data.data ?? response.data,
         message: response.data.message
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Get all courses error:', error);
+      const axiosError = error as { response?: { data?: { message?: string } } };
       return {
         success: false,
-        error: error.response?.data?.message || 'Failed to fetch courses',
-        data: error.response?.data
+        error: axiosError.response?.data?.message || 'Failed to fetch courses'
       };
     }
   }
@@ -34,15 +34,15 @@ class CourseApiService {
       const response = await api.get(`/courses/${id}`);
       return {
         success: true,
-        data: response.data.data || response.data,
+        data: response.data.data ?? response.data,
         message: response.data.message
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Get course error:', error);
+      const axiosError = error as { response?: { data?: { message?: string } } };
       return {
         success: false,
-        error: error.response?.data?.message || 'Failed to fetch course',
-        data: error.response?.data
+        error: axiosError.response?.data?.message || 'Failed to fetch course'
       };
     }
   }
@@ -52,16 +52,23 @@ class CourseApiService {
       const response = await api.post('/courses', courseData);
       return {
         success: true,
-        data: response.data.data || response.data,
+        data: response.data.data ?? response.data,
         message: response.data.message || 'Course created successfully'
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Create course error:', error);
+      const axiosError = error as { 
+        response?: { 
+          data?: { 
+            message?: string;
+            errors?: Record<string, string[]>;
+          } 
+        } 
+      };
       return {
         success: false,
-        error: error.response?.data?.message || 'Failed to create course',
-        errors: error.response?.data?.errors,
-        data: error.response?.data
+        error: axiosError.response?.data?.message || 'Failed to create course',
+        errors: axiosError.response?.data?.errors
       };
     }
   }
@@ -71,16 +78,23 @@ class CourseApiService {
       const response = await api.put(`/courses/${id}`, courseData);
       return {
         success: true,
-        data: response.data.data || response.data,
+        data: response.data.data ?? response.data,
         message: response.data.message || 'Course updated successfully'
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Update course error:', error);
+      const axiosError = error as { 
+        response?: { 
+          data?: { 
+            message?: string;
+            errors?: Record<string, string[]>;
+          } 
+        } 
+      };
       return {
         success: false,
-        error: error.response?.data?.message || 'Failed to update course',
-        errors: error.response?.data?.errors,
-        data: error.response?.data
+        error: axiosError.response?.data?.message || 'Failed to update course',
+        errors: axiosError.response?.data?.errors
       };
     }
   }
@@ -90,33 +104,32 @@ class CourseApiService {
       const response = await api.patch(`/courses/${id}/status`, { status });
       return {
         success: true,
-        data: response.data.data || response.data,
+        data: response.data.data ?? response.data,
         message: response.data.message || 'Course status updated successfully'
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Update course status error:', error);
+      const axiosError = error as { response?: { data?: { message?: string } } };
       return {
         success: false,
-        error: error.response?.data?.message || 'Failed to update course status',
-        data: error.response?.data
+        error: axiosError.response?.data?.message || 'Failed to update course status'
       };
     }
   }
 
-  async deleteCourse(id: string | number): Promise<ApiResponse> {
+  async deleteCourse(id: string | number): Promise<ApiResponse<void>> {
     try {
       const response = await api.delete(`/courses/${id}`);
       return {
         success: true,
-        data: response.data.data || response.data,
         message: response.data.message || 'Course deleted successfully'
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Delete course error:', error);
+      const axiosError = error as { response?: { data?: { message?: string } } };
       return {
         success: false,
-        error: error.response?.data?.message || 'Failed to delete course',
-        data: error.response?.data
+        error: axiosError.response?.data?.message || 'Failed to delete course'
       };
     }
   }
@@ -126,15 +139,15 @@ class CourseApiService {
       const response = await api.get(`/courses/status/${status}`);
       return {
         success: true,
-        data: response.data.data || response.data,
+        data: response.data.data ?? response.data,
         message: response.data.message
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Get courses by status error:', error);
+      const axiosError = error as { response?: { data?: { message?: string } } };
       return {
         success: false,
-        error: error.response?.data?.message || 'Failed to fetch courses',
-        data: error.response?.data
+        error: axiosError.response?.data?.message || 'Failed to fetch courses'
       };
     }
   }

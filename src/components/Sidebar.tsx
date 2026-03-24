@@ -434,8 +434,8 @@ export default function Sidebar() {
 
   if (!user) {
     return (
-      <aside className="w-[240px] h-full bg-[#163e27] flex flex-col shrink-0 overflow-y-auto">
-        <div className="h-[60px] px-5 flex items-center gap-3 shrink-0 border-b border-[#1d4d31]">
+      <aside className="w-240px h-full bg-[#163e27] flex flex-col shrink-0 overflow-y-auto">
+        <div className="h-60px px-5 flex items-center gap-3 shrink-0 border-b border-[#1d4d31]">
           <div className="w-7 h-7 flex items-center justify-center bg-[#215738] rounded-md shadow-sm text-[#7fd6a3]">
             <TreePine className="w-4 h-4" />
           </div>
@@ -458,10 +458,10 @@ export default function Sidebar() {
   const isAdmin = user.role === "admin";
 
   return (
-    <aside className="w-[240px] h-full bg-[#163e27] flex flex-col shrink-0 overflow-y-auto sidebar-scrollbar border-r border-[#10301d] z-20 shadow-xl">
+    <aside className="w-240px h-full bg-[#163e27] flex flex-col shrink-0 overflow-y-auto sidebar-scrollbar border-r border-[#10301d] z-20 shadow-xl">
 
       {/* Logo */}
-      <div className="h-[60px] px-5 flex items-center gap-3 shrink-0 border-b border-[#1d4d31]">
+      <div className="h-60px px-5 flex items-center gap-3 shrink-0 border-b border-[#1d4d31]">
         <div className="w-7 h-7 flex items-center justify-center bg-[#215738] rounded-md shadow-sm text-[#7fd6a3]">
           <TreePine className="w-4 h-4" />
         </div>
@@ -508,7 +508,7 @@ export default function Sidebar() {
                       ${active
                         ? "bg-[#225838] text-white"
                         : "text-[#a2b7a9] hover:bg-[#1d4d31] hover:text-white"}`}>
-                    {active && <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 bg-[#83e0ab] rounded-r-md" />}
+                    {active && <div className="absolute left-0 top-1/2 -translate-y-1/2 w-3px h-5 bg-[#83e0ab] rounded-r-md" />}
                     <item.icon className="w-4 h-4 shrink-0" />
                     <span className="text-[13px] font-semibold">{item.label}</span>
                   </Link>
