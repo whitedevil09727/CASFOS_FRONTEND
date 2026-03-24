@@ -477,7 +477,6 @@ export default function Sidebar() {
         )}
       </div>
 
-      {/* User Info */}
       <div className="p-4 border-b border-[#1d4d31]">
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-full bg-[#276641] flex items-center justify-center text-white font-bold text-sm shrink-0">
@@ -495,17 +494,16 @@ export default function Sidebar() {
         </div>
       </div>
 
-      {/* Navigation */}
       <div className="flex-1 py-4 px-3 flex flex-col gap-1 overflow-y-auto sidebar-scrollbar">
 
         {filteredNav.map(group => (
           <div key={group.section} className="mb-1">
             {group.items.map((item: NavItem) => {
-              // ── Flat link (no children) ──
+         
               if (!hasChildren(item)) {
                 const href = (item as NavLeaf).href;
                 const active = pathname === href;
-                // Only show if href matches user's role path
+          
                 if (!href.includes(user.role)) return null;
                 return (
                   <Link key={item.label} href={href}

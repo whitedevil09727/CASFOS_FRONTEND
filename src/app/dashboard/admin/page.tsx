@@ -103,7 +103,7 @@ export default function Dashboard() {
       <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}
         className="flex items-center justify-between">
         <div>
-          <h1 className="text-[22px] font-bold text-gray-900 serif-font tracking-tight">Course Director Dashboard</h1>
+          <h1 className="text-[22px] font-bold text-gray-900 serif-font tracking-tight">Admin Director Dashboard</h1>
           <p className="text-[12px] text-gray-400 font-medium mt-0.5">IFS Foundation Course 2024–25 · Academic Year Overview</p>
         </div>
         <span className="flex items-center gap-1.5 bg-emerald-50 border border-emerald-200 text-emerald-700 text-[11px] font-bold px-3.5 py-1.5 rounded-full shadow-sm">
@@ -273,7 +273,6 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* Right: weekly bar chart */}
           <div>
             <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-4">Weekly Attendance</p>
             <ResponsiveContainer width="100%" height={195}>
